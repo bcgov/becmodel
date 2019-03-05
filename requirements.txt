@@ -1,0 +1,6 @@
+bcdata
+fiona
+rasterio
+click
+gdal
+numpy
