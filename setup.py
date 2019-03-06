@@ -17,9 +17,11 @@ with open('becmodel/__init__.py', 'r') as f:
 
 requires = [
     'bcdata',
+    'gdal',
     'fiona',
     'rasterio',
-    'click'
+    'click',
+    'numpy'
 ]
 
 test_requirements = [
@@ -28,7 +30,8 @@ test_requirements = [
 
 setup(name='becmodel',
       version=version,
-      description=u"Large Scale Biogeoclimatic Ecosystem (BEC) map processing",
+      url="https://github.com/smnorris/becmodel",
+      description=u"Modelling tool for generating biogeoclimatic ecosystem classification (BEC) polygons",
       long_description=read('README.md'),
       classifiers=[
         "Development Status :: 3 - Alpha",

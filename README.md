@@ -22,7 +22,7 @@ A polygon layer where each polygon represents a unique combination of elevations
 
 - *format*: Any format readable by `fiona` (FileGDB, GPKG, SHP)
 - *projection*: BC Albers (`EPSG:3005`)
-- *Required attribute*: `grid_code`
+- *required attribute*: `grid_code`
 
 ### Elevation file
 
