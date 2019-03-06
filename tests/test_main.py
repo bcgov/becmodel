@@ -6,7 +6,7 @@ from becmodel import util
 
 def test_config():
     util.load_config("tests/test_config.cfg")
-    assert config["rule_polygons_file"] == "tests/data/data.gdb.zip"
+    assert config["rulepolygon_file"] == "tests/data/data.gdb.zip"
 
 
 def test_load(tmpdir):

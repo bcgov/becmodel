@@ -1,4 +1,3 @@
-import os
 import logging
 
 import click
@@ -13,14 +12,14 @@ log = logging.getLogger(__name__)
 
 
 @click.command()
-@click.option("--config_file", default="bec_config.cfg")
-def cli(config_file):
-    # update config if a config file provided
-    if os.path.exists(config_file):
-        log.info("Loading config from file: %s", config_file)
-        util.load_config(config_file)
-    else:
-        log.info("Using default configuration")
+@click.option("-v", "--validate", is_flag=True)
+@click.argument("config_file", type=click.Path(exists=True))
+def cli(config_file, validate):
+    log.info("Loading config from file: %s", config_file)
+    util.load_config(config_file)
     log.info("Running the bec model")
+    # validate the provided inputs
+    #becmodel.validate()
     # load data
-    becmodel.load()
+    if not validate:
+        becmodel.load()
