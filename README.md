@@ -14,9 +14,6 @@ Alternatively, installing via `pip` is possible if:
 - you are comfortable with managing your environment
 - you are not using Windows
 
-`pip install --extra-index-url=https://www.hillcrestgeo.ca/pypi becmodel`
-
-
 ## Required files
 
 ### Rule polygon file
