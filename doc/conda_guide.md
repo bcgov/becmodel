@@ -10,6 +10,6 @@
 
 ![openterminal](img/anaconda_03_openterminal.png)
 
-4. The `becmodel` command is available at the command prompt terminal. See the [README](../README.md) for a usage guide.
+4. The `becmodel` command is available at the command prompt terminal. See the [README](https://github.com/smnorris/becmodel) for a usage guide.
 
 ![openterminal](img/anaconda_04_run.png)
