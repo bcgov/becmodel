@@ -7,7 +7,7 @@ The Large Scale Biogeoclimatic Ecosystem Classification Process generates biogeo
 
 ## Installation
 
-Installation is easiest with Anaconda, see the [guide](docs/conda_guide.md).
+Installation is easiest with Anaconda, see the [guide](doc/conda_guide.md).
 
 Alternatively, installing via `pip` is possible if:
 - Python and pip are already installed

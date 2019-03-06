@@ -1,7 +1,6 @@
 # Installation using Anaconda
 
-1. Download and install [Anaconda](https://www.anaconda.com/distribution/#download-section)
-
+1. Download and install Anaconda from [here](https://www.anaconda.com/distribution/#download-section). Choose the Python 3 version.
 ![download](img/anaconda_01_install.png)
 
 2. Open the Anaconda Navigator from the Start Menu, select the Envronments tab and click the import button in the Environments window. Enter the name of the environment to create (anything) and point to the Specification File provided (`becmodel-env.yaml`):
@@ -11,12 +10,6 @@
 
 ![openterminal](img/anaconda_03_openterminal.png)
 
-4. The `becmodel` command is available at the command prompt terminal.
+4. The `becmodel` command is available at the command prompt terminal. See the [README](../README.md) for a usage guide.
 
-To run with the default config:
-
-    C:\> becmodel
-
-To specify a specific config file:
-
-    C:\ becmodel --config_file myconfig.cfg
+![openterminal](img/anaconda_04_run.png)
