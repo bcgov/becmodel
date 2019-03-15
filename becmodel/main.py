@@ -68,7 +68,7 @@ def load():
     with fiona.open(config["rulepolygon_file"], layer=config["rulepolyon_layer"]) as src:
 
         image = features.rasterize(
-            ((s['geometry'], int(s['properties']['GRIDCODE'])) for s in src),
+            ((s['geometry'], int(s['properties']['age'])) for s in src),
             out_shape=shape,
             transform=transform,
             all_touched=False
