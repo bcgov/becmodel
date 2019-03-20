@@ -1,0 +1,10 @@
+name: becmodel-env
+dependencies:
+- click
+- numpy
+- gdal
+- fiona
+- rasterio
+- pip:
+  - bcdata
+  - http://www.hillcrestgeo.ca/pypi/becmodel/becmodel-0.0.2.dev0.tar.gz
