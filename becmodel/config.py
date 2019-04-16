@@ -4,7 +4,6 @@
 config = {
     "rulepolygon_file": "bec_inputs.gdb",
     "rulepolygon_layer": "rule_polys",
-    "rulepolygon_table": "rulepolygon.csv",
     "elevation": "elevationrange.csv",
     "becmaster": "becmaster.csv",
     "cell_size": 50,

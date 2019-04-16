@@ -3,7 +3,17 @@ import configparser
 import logging
 import logging.handlers
 
+import fiona
+
 from becmodel.config import config
+
+
+class ConfigError(Exception):
+    """Configuration key error"""
+
+
+class ConfigValueError(Exception):
+    """Configuration key error"""
 
 
 def make_sure_path_exists(path):
@@ -26,26 +36,27 @@ def load_config(config_file):
 
     for key in cfg_dict:
         if key not in config.keys():
-            raise ValueError("Config key {} is invalid".format(key))
+            raise ConfigError("Config key {} is invalid".format(key))
         config[key] = cfg_dict[key]
+
+    # convert int config values to int
+    for key in ["cell_size","smoothing_tolerance","generalize_tolerance","parkland_removeal_threshold","noise_removal_threshold","expand_bounds"]:
+        config[key] = int(config[key])
+
+    validate_config()
 
 
 def validate_config():
-    """Make sure specified paths/files exist
-    """
-    # validate that files exist
-    for key in ["rulepolygon_file", "rulepolygon_table", "elevation", "becmaster"]:
+    # validate that required paths exist
+    for key in ["rulepolygon_file", "elevation", "becmaster"]:
         if not os.path.exists(config[key]):
-            raise ValueError("config {}: {} does not exist".format(key, config[key]))
+            raise ConfigValueError("config {}: {} does not exist".format(key, config[key]))
 
-    # check that rule poly layer exists
-    #"rulepolygon_layer": "rule_polys"
+    # validate rule polygon layer exists
+    if config["rulepolygon_layer"] not in fiona.listlayers(config["rulepolygon_file"]):
+        raise ConfigValueError("config {}: {} does not exist in {}".format(key, config["rulepolygon_layer"], config["rulepolygon_file"]))
 
-    # check that integer keys are integers
-
-    for key in ["cell_size","smoothing_tolerance","generalize_tolerance","parkland_removeal_threshold","noise_removal_threshold","expand_bounds"]:
-        if not type(key) is int:
-            raise ValueError("config {}: {} is invalid, it must be an integer".format(key, config[key]))
+    # todo - perhaps validate various int param are within reasonable range?
 
 
 def configure_logging():
