@@ -25,7 +25,27 @@ def load_config(config_file):
     cfg_dict = dict(cfg["CONFIG"])
 
     for key in cfg_dict:
+        if key not in config.keys():
+            raise ValueError("Config key {} is invalid".format(key))
         config[key] = cfg_dict[key]
+
+
+def validate_config():
+    """Make sure specified paths/files exist
+    """
+    # validate that files exist
+    for key in ["rulepolygon_file", "rulepolygon_table", "elevation", "becmaster"]:
+        if not os.path.exists(config[key]):
+            raise ValueError("config {}: {} does not exist".format(key, config[key]))
+
+    # check that rule poly layer exists
+    #"rulepolygon_layer": "rule_polys"
+
+    # check that integer keys are integers
+
+    for key in ["cell_size","smoothing_tolerance","generalize_tolerance","parkland_removeal_threshold","noise_removal_threshold","expand_bounds"]:
+        if not type(key) is int:
+            raise ValueError("config {}: {} is invalid, it must be an integer".format(key, config[key]))
 
 
 def configure_logging():

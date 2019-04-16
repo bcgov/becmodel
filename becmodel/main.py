@@ -22,13 +22,13 @@ def load():
     """
 
     # get bounds and expand by specified distance
-    with fiona.open(config["rulepolygon_file"], layer=config["rulepolyon_layer"]) as src:
+    with fiona.open(config["rulepolygon_file"], layer=config["rulepolygon_layer"]) as src:
         bump = config["expand_bounds"]
         bounds = [math.trunc(b) for b in [src.bounds[0] - bump, src.bounds[1] - bump, src.bounds[2] + bump, src.bounds[3] + bump]]
 
     util.make_sure_path_exists(config["wksp"])
 
-    # define paths to output paths to make code more compact
+    # define paths to output files - just to make code a bit more compact
     dem = os.path.join(config["wksp"], "dem.tif")
     aspect = os.path.join(config["wksp"], "aspect.tif")
     aspect_class = os.path.join(config["wksp"], "aspect_class.tif")
@@ -65,10 +65,10 @@ def load():
         crs = src.crs
 
     # burn rule polygon GRIDCODE to raster using above DEM shape/transform
-    with fiona.open(config["rulepolygon_file"], layer=config["rulepolyon_layer"]) as src:
+    with fiona.open(config["rulepolygon_file"], layer=config["rulepolygon_layer"]) as src:
 
         image = features.rasterize(
-            ((s['geometry'], int(s['properties']['age'])) for s in src),
+            ((s['geometry'], int(s['properties']['GRIDCODE'])) for s in src),
             out_shape=shape,
             transform=transform,
             all_touched=False

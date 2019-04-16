@@ -3,7 +3,7 @@
 
 config = {
     "rulepolygon_file": "bec_inputs.gdb",
-    "rulepolyon_layer": "rule_polys",
+    "rulepolygon_layer": "rule_polys",
     "rulepolygon_table": "rulepolygon.csv",
     "elevation": "elevationrange.csv",
     "becmaster": "becmaster.csv",
