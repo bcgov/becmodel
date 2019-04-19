@@ -31,6 +31,7 @@ config = {
             "name": "neutral",
             "code": 200,
             "ranges": [
+                {"min": -1, "max": 0},   # flat areas are set to -1
                 {"min": 45, "max": 135},
                 {"min": 270, "max": 315}
             ],

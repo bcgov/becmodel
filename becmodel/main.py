@@ -1,7 +1,7 @@
 import os
 import math
 import logging
-
+import shutil
 
 import fiona
 import rasterio
@@ -17,8 +17,8 @@ from becmodel.config import config
 log = logging.getLogger(__name__)
 
 
-def process():
-    """ rasterize rules polygon layer, get DEM, calc aspect
+def process(overwrite=False):
+    """ Generate becvalue raster from rules and DEM
     """
 
     # get bounds and expand by specified distance
@@ -34,34 +34,51 @@ def process():
             ]
         ]
 
+    if overwrite and os.path.exists(config["wksp"]):
+        shutil.rmtree(config["wksp"])
+
     util.make_sure_path_exists(config["wksp"])
 
     # define paths to output files - just to make code a bit more compact
     dem = os.path.join(config["wksp"], "dem.tif")
+    slope = os.path.join(config["wksp"], "slope.tif")
     aspect = os.path.join(config["wksp"], "aspect.tif")
     aspect_class = os.path.join(config["wksp"], "aspect_class.tif")
     rules = os.path.join(config["wksp"], "rules.tif")
     becvalue = os.path.join(config["wksp"], "becvalue.tif")
 
-    # get dem, calculate aspect
+    # remove all if overwrite specified
+    if overwrite:
+        for tif in [dem, slope, aspect, aspect_class, rules, becvalue]:
+            if os.path.exists(tif):
+                os.remove(tif)
+
+    # get dem, generate slope and aspect
     if not os.path.exists(dem):
         bcdata.get_dem(bounds, dem)
     if not os.path.exists(aspect):
-        gdal.DEMProcessing(aspect, dem, "aspect")
+        gdal.DEMProcessing(aspect, dem, "aspect", zeroForFlat=True)
+    if not os.path.exists(slope):
+        gdal.DEMProcessing(slope, dem, "slope", slopeFormat="percent")
+
+    # load slope
+    with rasterio.open(slope) as src:
+        slope_image = src.read(1)
 
     # classify aspect
-    # https://gis.stackexchange.com/questions/163007/raster-reclassify-using-python-gdal-and-numpy
-    if not os.path.exists(aspect_class):
-        with rasterio.open(aspect) as src:
-            array1 = src.read(1)
-            aspect_image = array1.copy()
-            profile = src.profile
-            for aspect in config["aspects"]:
-                for rng in aspect["ranges"]:
-                    aspect_image[
-                        (array1 >= rng["min"]) & (array1 < rng["max"])
-                    ] = aspect["code"]
+    with rasterio.open(aspect) as src:
+        array1 = src.read(1)
+        aspect_image = array1.copy()
+        profile = src.profile
+        # set aspect to -1 for all slopes less that 15%
+        aspect_image[slope_image < 15] = -1
+        for aspect in config["aspects"]:
+            for rng in aspect["ranges"]:
+                aspect_image[
+                    (array1 >= rng["min"]) & (array1 < rng["max"])
+                ] = aspect["code"]
 
+    if not os.path.exists(aspect_class):
         with rasterio.open(aspect_class, "w", **profile) as dst:
             dst.write(aspect_image, 1)
 
@@ -103,6 +120,7 @@ def process():
     becvalue_image = np.zeros(shape=shape, dtype="uint16")
 
     data = util.load_tables()
+    lookup = []
     for index, row in data["elevation"].iterrows():
         for aspect in config["aspects"]:
             becvalue_image[
@@ -124,3 +142,4 @@ def process():
             transform=transform,
     ) as dst:
         dst.write(becvalue_image, indexes=1)
+    log.info("{} grid created".format(becvalue))
