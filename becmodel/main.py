@@ -68,10 +68,10 @@ def process(overwrite=False):
     # classify aspect
     with rasterio.open(aspect) as src:
         array1 = src.read(1)
+        # set aspect to -1 for all slopes less that 15%
+        array1[slope_image < 15] = -1
         aspect_image = array1.copy()
         profile = src.profile
-        # set aspect to -1 for all slopes less that 15%
-        aspect_image[slope_image < 15] = -1
         for aspect in config["aspects"]:
             for rng in aspect["ranges"]:
                 aspect_image[
