@@ -24,7 +24,15 @@ def load():
     # get bounds and expand by specified distance
     with fiona.open(config["rulepolys_file"], layer=config["rulepolys_layer"]) as src:
         bump = config["expand_bounds"]
-        bounds = [math.trunc(b) for b in [src.bounds[0] - bump, src.bounds[1] - bump, src.bounds[2] + bump, src.bounds[3] + bump]]
+        bounds = [
+            math.trunc(b)
+            for b in [
+                src.bounds[0] - bump,
+                src.bounds[1] - bump,
+                src.bounds[2] + bump,
+                src.bounds[3] + bump,
+            ]
+        ]
 
     util.make_sure_path_exists(config["wksp"])
 
@@ -38,7 +46,7 @@ def load():
     if not os.path.exists(dem):
         bcdata.get_dem(bounds, dem)
     if not os.path.exists(aspect):
-        gdal.DEMProcessing(aspect, dem, 'aspect')
+        gdal.DEMProcessing(aspect, dem, "aspect")
 
     # classify aspect
     # https://gis.stackexchange.com/questions/163007/raster-reclassify-using-python-gdal-and-numpy
@@ -47,13 +55,18 @@ def load():
             array1 = src.read()
             array2 = array1.copy()
             profile = src.profile
-            array2[np.where(np.logical_and(array1 >= 0, array1 < 45))] = 100
-            array2[np.where(np.logical_and(array1 >= 45, array1 < 135))] = 200
-            array2[np.where(np.logical_and(array1 >= 135, array1 < 270))] = 300
-            array2[np.where(np.logical_and(array1 >= 270, array1 < 315))] = 200
-            array2[np.where(np.logical_and(array1 >= 315, array1 < 361))] = 100
+            for aspect in config["aspects"]:
+                for rng in aspect["ranges"]:
+                    print(str(aspect["code"]) + str(rng))
+                    print(rng["min"])
+                    array2[
+                        np.where(
+                            np.logical_and(array1 >= rng["min"],
+                                           array1 < rng["max"])
+                        )
+                    ] = aspect["code"]
 
-        with rasterio.open(aspect_class, 'w', **profile) as dst:
+        with rasterio.open(aspect_class, "w", **profile) as dst:
             dst.write(array2)
 
     # get the shape and affine transform of the DEM so new rasters line up
@@ -68,19 +81,25 @@ def load():
     with fiona.open(config["rulepolys_file"], layer=config["rulepolys_layer"]) as src:
 
         image = features.rasterize(
-            ((s['geometry'], int(s['properties']['polygon_number'])) for s in src),
+            ((s["geometry"], int(s["properties"]["polygon_number"])) for s in src),
             out_shape=shape,
             transform=transform,
-            all_touched=False
+            all_touched=False,
         )
         with rasterio.open(
-            rules, 'w',
-            driver='GTiff',
+            rules,
+            "w",
+            driver="GTiff",
             dtype=rasterio.uint16,
             count=1,
             width=width,
             height=height,
             crs=crs,
-            transform=transform
+            transform=transform,
         ) as dst:
             dst.write(image, indexes=1)
+
+    # generate becvalue raster by combining sources
+    # cool
+    # neutral
+    # warm

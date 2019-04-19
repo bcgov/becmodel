@@ -10,34 +10,6 @@ import fiona
 
 from becmodel.config import config
 
-# input data tables must match this structure
-ELEVATION = {
-    "becvalue": np.int32,
-    "beclabel": np.str,
-    "class_name": np.str,
-    "cool_low": np.int32,
-    "cool_high": np.int32,
-    "neutral_low": np.int32,
-    "neutral_high": np.int32,
-    "warm_low": np.int32,
-    "warm_high": np.int32,
-    "polygon_number": np.int32
-}
-
-RULEPOLYS = {
-  "polygon_number": np.int32,
-  "polygon_description": np.str
-}
-
-BECMASTER = {
-    "becvalue": np.int32,
-    "beclabel": np.str,
-    "zone": np.str,
-    "subzone": np.str,
-    "variant": np.str,
-    "phase": np.str
-}
-
 
 class ConfigError(Exception):
     """Configuration key error"""
@@ -75,7 +47,14 @@ def load_config(config_file):
         config[key] = cfg_dict[key]
 
     # convert int config values to int
-    for key in ["cell_size","smoothing_tolerance","generalize_tolerance","parkland_removeal_threshold","noise_removal_threshold","expand_bounds"]:
+    for key in [
+        "cell_size",
+        "smoothing_tolerance",
+        "generalize_tolerance",
+        "parkland_removeal_threshold",
+        "noise_removal_threshold",
+        "expand_bounds",
+    ]:
         config[key] = int(config[key])
 
     validate_config()
@@ -85,11 +64,17 @@ def validate_config():
     # validate that required paths exist
     for key in ["rulepolys_file", "elevation", "becmaster"]:
         if not os.path.exists(config[key]):
-            raise ConfigValueError("config {}: {} does not exist".format(key, config[key]))
+            raise ConfigValueError(
+                "config {}: {} does not exist".format(key, config[key])
+            )
 
     # validate rule polygon layer exists
     if config["rulepolys_layer"] not in fiona.listlayers(config["rulepolys_file"]):
-        raise ConfigValueError("config {}: {} does not exist in {}".format(key, config["rulepolys_layer"], config["rulepolys_file"]))
+        raise ConfigValueError(
+            "config {}: {} does not exist in {}".format(
+                key, config["rulepolys_layer"], config["rulepolys_file"]
+            )
+        )
 
 
 def load_data():
@@ -97,10 +82,39 @@ def load_data():
     """
     data = {}
     try:
-        data["elevation"] = pd.read_csv(config["elevation"], dtype=ELEVATION)
-        data["becmaster"] = pd.read_csv(config["becmaster"], dtype=BECMASTER)
-        data["rulepolys"] = gpd.read_file(config["rulepolys_file"], layer=config["rulepolys_layer"])
-        data["rulepolys"] = data["rulepolys"].astype(RULEPOLYS, errors='raise')
+        data["elevation"] = pd.read_csv(
+            config["elevation"],
+            dtype={
+                "becvalue": np.int32,
+                "beclabel": np.str,
+                "class_name": np.str,
+                "cool_low": np.int32,
+                "cool_high": np.int32,
+                "neutral_low": np.int32,
+                "neutral_high": np.int32,
+                "warm_low": np.int32,
+                "warm_high": np.int32,
+                "polygon_number": np.int32,
+            },
+        )
+        data["becmaster"] = pd.read_csv(
+            config["becmaster"],
+            dtype={
+                "becvalue": np.int32,
+                "beclabel": np.str,
+                "zone": np.str,
+                "subzone": np.str,
+                "variant": np.str,
+                "phase": np.str,
+            },
+        )
+        data["rulepolys"] = gpd.read_file(
+            config["rulepolys_file"], layer=config["rulepolys_layer"]
+        )
+        data["rulepolys"] = data["rulepolys"].astype(
+            {"polygon_number": np.int32, "polygon_description": np.str},
+            errors="raise"
+        )
     except:
         raise DataValueError("Value(s) in input files incorrect, check data types")
 
@@ -109,6 +123,12 @@ def load_data():
         df.columns = df.columns.str.lower()
 
     validate_data(data)
+
+    # rearrange the elevation table to create a single lookup table of format:
+    # polygon_number, aspect_class, min_elev, max_elev, becvalue
+    #  1, 100, 0, 100, 3
+    #  1, 100, 100, 140, 4
+
     return data
 
 
@@ -120,18 +140,37 @@ def validate_data(data):
     rulepolynums = set(data["rulepolys"].polygon_number.unique())
     elevpolynums = set(data["elevation"].polygon_number.unique())
     if rulepolynums ^ elevpolynums:
-        raise DataValueError("input file polygon_number values do not match: \n  rulepolys: {} \n  elevation: {}".format(str(rulepolynums - elevpolynums), str(elevpolynums - rulepolynums)))
+        raise DataValueError(
+            "input file polygon_number values do not match: \n  rulepolys: {} \n  elevation: {}".format(
+                str(rulepolynums - elevpolynums), str(elevpolynums - rulepolynums)
+            )
+        )
 
     # check that elevation table values are continuous
     for poly in data["elevation"].polygon_number.unique():
         for temp in ["cool", "neutral", "warm"]:
             # get the elevation ranges (low, high) values for the temp
-            elev_values = sorted(list(data["elevation"][data["elevation"].polygon_number == poly][temp+"_low"]) + list(data["elevation"][data["elevation"].polygon_number == poly][temp+"_high"]))
+            elev_values = sorted(
+                list(
+                    data["elevation"][data["elevation"].polygon_number == poly][
+                        temp + "_low"
+                    ]
+                )
+                + list(
+                    data["elevation"][data["elevation"].polygon_number == poly][
+                        temp + "_high"
+                    ]
+                )
+            )
             # strip off the max and min
             elev_values = elev_values[1:-1]
             # there must be an even number of elevations provided
             if len(elev_values) % 2 != 0:
-                raise DataValueError("Elevations are poorly structured, see {} columns for polygon_number {}".format(temp, poly))
+                raise DataValueError(
+                    "Elevations are poorly structured, see {} columns for polygon_number {}".format(
+                        temp, poly
+                    )
+                )
             # elevations must also be consecutive, no gaps in values
             # when low/high columns are combined and values are sorted, the
             # values are always like this:
@@ -139,7 +178,11 @@ def validate_data(data):
             # Therefore, length of the list / 2 is always equal to length of
             # the set of unique values.
             if len(elev_values) / 2 != len(set(elev_values)):
-                raise DataValueError("Elevations are poorly structured, see {} columns for polygon_number {}".format(temp, poly))
+                raise DataValueError(
+                    "Elevations are poorly structured, see {} columns for polygon_number {}".format(
+                        temp, poly
+                    )
+                )
 
 
 def configure_logging():

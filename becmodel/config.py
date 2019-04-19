@@ -13,5 +13,34 @@ config = {
     "noise_removal_threshold": 250000,
     "expand_bounds": 1000,
     "wksp": "becmodel_tempdata",
-    "log_file": "becmodel.log"
+    "log_file": "becmodel.log",
+    # define aspects as list of dicts
+    # each aspect has a 'code' and a list of valid ranges as degrees azimuth
+    # (0-361, an extra degree to ensure full coverage)
+    # *note* aspects are not configurable through the config file interface
+    "aspects": [
+        {
+            "name": "cool",
+            "code": 100,
+            "ranges": [
+                {"min": 0, "max": 45},
+                {"min": 315, "max": 361}
+            ],
+        },
+        {
+            "name": "neutral",
+            "code": 200,
+            "ranges": [
+                {"min": 45, "max": 135},
+                {"min": 270, "max": 315}
+            ],
+        },
+        {
+            "name": "warm",
+            "code": 300,
+            "ranges": [
+                {"min": 135, "max": 270}
+            ]
+        },
+    ],
 }
