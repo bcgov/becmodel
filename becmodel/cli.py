@@ -17,8 +17,8 @@ def cli(config_file, validate):
     log.info("Initializing BEC model v{}".format(becmodel.__version__))
     log.info("Loading config from file: %s", config_file)
     util.load_config(config_file)
-    # validate the provided inputs
-    becmodel.validate_config()
+
     # load data
-    #if not validate:
-    #    becmodel.load()
+    becmodel.load()
+
+    # if not validate, continue

@@ -2,10 +2,10 @@
 # To overwrite these values, provide becmodel command with a config file
 
 config = {
-    "rulepolygon_file": "bec_inputs.gdb",
-    "rulepolygon_layer": "rule_polys",
-    "elevation": "elevationrange.csv",
-    "becmaster": "becmaster.csv",
+    "rulepolys_file": "tests/data/data.gdb.zip",
+    "rulepolys_layer": "rule_polys",
+    "elevation": "tests/data/elevation.csv",
+    "becmaster": "tests/data/becmaster.csv",
     "cell_size": 50,
     "smoothing_tolerance": 50,
     "generalize_tolerance": 200,
