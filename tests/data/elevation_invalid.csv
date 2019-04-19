@@ -1,0 +1,3 @@
+becvalue,beclabel,class_name,cool_low,cool_high,neutral_low,neutral_high,warm_low,warm_high,zone,subzone,variant,phase,polygon_number
+131,IDF xh 1,High,825,10000,850,10000,900,10000,IDF,xh,1,,9999
+162,PP  xh 1,Low,475,825,500,850,525,900,PP,xh,1,,300
