@@ -1,4 +1,4 @@
-from becmodel.main import load
+from becmodel.main import process
 
 import logging
 

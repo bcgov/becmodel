@@ -77,7 +77,7 @@ def validate_config():
         )
 
 
-def load_data():
+def load_tables():
     """load data from files specified in config and validate
     """
     data = {}
@@ -88,6 +88,8 @@ def load_data():
                 "becvalue": np.int32,
                 "beclabel": np.str,
                 "class_name": np.str,
+                # todo
+                # derive aspect prefixes from names in config["aspects"]
                 "cool_low": np.int32,
                 "cool_high": np.int32,
                 "neutral_low": np.int32,
