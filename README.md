@@ -19,20 +19,43 @@ Alternatively, install via `pip install` if:
 
 ### Rule polygon file
 
-A polygon layer where each polygon represents a unique combination of elevations rules for the occuring BGC units. The file must meet the following requirements:
+A polygon layer where each polygon represents a unique combination of elevations rules for the occuring BGC units. The file must:
 
-- *format*: Any format readable by `fiona` (FileGDB, GPKG, SHP)
-- *projection*: BC Albers (`EPSG:3005`)
-- *required attribute*: `GRIDCODE`
+- be a format readable by [`fiona`](https://github.com/Toblerity/Fiona) (`FileGDB`, `GPKG`, `SHP`, etc)
+- use the BC Albers (`EPSG:3005`) coordinate reference system / projection
+- include these attributes of noted types:
+
+        polygon_number      : integer
+        polygon_description : string / character
 
 ### Elevation file
 
-A table (csv format) with the following columns:
+A table (csv format) with the following columns (in any order, case insensitive):
+
+
+    becvalue       : integer
+    beclabel       : string
+    class_name     : string
+    cool_low       : integer
+    cool_high      : integer
+    neutral_low    : integer
+    neutral_high   : integer
+    warm_low       : integer
+    warm_high      : integer
+    polygon_number : integer
+
 
 
 ### BEC master file
 
-A table (csv format) with the following columns:
+A table (csv format) with the following columns (in any order, case insensitive):
+
+    becvalue : integer
+    beclabel : string
+    zone     : string
+    subzone  : string
+    variant  : string
+    phase    : string
 
 
 ### Config file
@@ -46,15 +69,17 @@ A text file that defines the parameters for the model run, overriding the defaul
 Modify your config file as required and provide path of the config file as an argument to the script:
 
       $ becmodel --help
-      Usage: becmodel [OPTIONS] CONFIG_FILE
+        Usage: becmodel [OPTIONS] CONFIG_FILE
 
-      Options:
-        -v, --validate
-        --help          Show this message and exit.
-      (becmodel-env)
+        Options:
+          -v, --validate
+          -o, --overwrite
+          --help           Show this message and exit.
 
       $ becmodel sample_config.cfg
-      2019-03-06 11:58:41,881 becmodel.cli INFO     Loading config from file: sample_config.cfg
-      2019-03-06 11:58:41,883 becmodel.cli INFO     Running the bec model
+      $ becmodel sample_config.cfg -o
+        2019-04-19 12:12:49,719 becmodel.cli INFO     Initializing BEC model v0.0.3dev
+        2019-04-19 12:12:49,720 becmodel.cli INFO     Loading config from file: sample_config.cfg
+        2019-04-19 12:12:52,023 becmodel.main INFO     becmodel_tempdata/becvalue.tif grid created
 
 Temp data are written to the default workspace `becmodel_tempdata` or to the folder specified by the `wskp` key in the config file.
