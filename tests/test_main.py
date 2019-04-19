@@ -1,9 +1,12 @@
 import os
+
+import pytest
+import pandas as pd
+
 import becmodel
 from becmodel.config import config
 from becmodel import util
 from becmodel.util import ConfigError, ConfigValueError, DataValueError
-import pytest
 
 
 def test_invalid_config():
@@ -36,6 +39,7 @@ def test_load_data():
     assert data["elevation"].becvalue[0] == 265
 
 
+# invalid types in rule polys
 def test_load_invalid_rulepolys():
     with pytest.raises(DataValueError):
         util.load_config("tests/test.cfg")
@@ -43,6 +47,7 @@ def test_load_invalid_rulepolys():
         util.load_data()
 
 
+# invalid types in becmaster
 def test_load_invalid_becmaster():
     with pytest.raises(DataValueError):
         util.load_config("tests/test.cfg")
@@ -50,11 +55,30 @@ def test_load_invalid_becmaster():
         util.load_data()
 
 
+# elevation and rulepolys polygon_number values are not exact matches
 def test_load_invalid_elevation():
     with pytest.raises(DataValueError):
         util.load_config("tests/test.cfg")
         config["elevation"] = "tests/data/elevation_invalid.csv"
         util.load_data()
+
+
+def test_load_invalid_elevation_bands():
+    with pytest.raises(DataValueError):
+        util.load_config("tests/test.cfg")
+        data = util.load_data()
+        bad_elevation = {
+            "polygon_number": [1, 1, 1, 1],
+            "cool_low": [0, 530, 875, 1400],
+            "cool_high": [531, 875, 1400, 10000],
+            "neutral_low": [0, 525, 875, 1400],
+            "neutral_high": [525, 875, 1400, 10000],
+            "warm_low": [0, 525, 875, 1400],
+            "warm_high": [525, 875, 1400, 10000]
+        }
+        data["elevation"] = pd.DataFrame(bad_elevation)
+        data["rulepolys"] = pd.DataFrame({"polygon_number": [1]})
+        util.validate_data(data)
 
 
 def test_load(tmpdir):

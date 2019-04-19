@@ -2,7 +2,6 @@ import os
 import configparser
 import logging
 import logging.handlers
-import csv
 
 import pandas as pd
 import numpy as np
@@ -94,7 +93,7 @@ def validate_config():
 
 
 def load_data():
-    """load data from files specified in config
+    """load data from files specified in config and validate
     """
     data = {}
     try:
@@ -109,13 +108,38 @@ def load_data():
     for df in data.values():
         df.columns = df.columns.str.lower()
 
-    # do polygon numbers match in each table?
-    rules = set(data["rulepolys"].polygon_number.unique())
-    elev = set(data["elevation"].polygon_number.unique())
-    if rules ^ elev:
-        raise DataValueError("polygon_number values are not equivalent in input rulepolys and elevation")
-
+    validate_data(data)
     return data
+
+
+def validate_data(data):
+    """apply some simple checks to make sure inputs make sense
+    """
+
+    # do polygon numbers match in each table?
+    rulepolynums = set(data["rulepolys"].polygon_number.unique())
+    elevpolynums = set(data["elevation"].polygon_number.unique())
+    if rulepolynums ^ elevpolynums:
+        raise DataValueError("input file polygon_number values do not match: \n  rulepolys: {} \n  elevation: {}".format(str(rulepolynums - elevpolynums), str(elevpolynums - rulepolynums)))
+
+    # check that elevation table values are continuous
+    for poly in data["elevation"].polygon_number.unique():
+        for temp in ["cool", "neutral", "warm"]:
+            # get the elevation ranges (low, high) values for the temp
+            elev_values = sorted(list(data["elevation"][data["elevation"].polygon_number == poly][temp+"_low"]) + list(data["elevation"][data["elevation"].polygon_number == poly][temp+"_high"]))
+            # strip off the max and min
+            elev_values = elev_values[1:-1]
+            # there must be an even number of elevations provided
+            if len(elev_values) % 2 != 0:
+                raise DataValueError("Elevations are poorly structured, see {} columns for polygon_number {}".format(temp, poly))
+            # elevations must also be consecutive, no gaps in values
+            # when low/high columns are combined and values are sorted, the
+            # values are always like this:
+            #  [100, 100, 500, 500, 1000, 1000]
+            # Therefore, length of the list / 2 is always equal to length of
+            # the set of unique values.
+            if len(elev_values) / 2 != len(set(elev_values)):
+                raise DataValueError("Elevations are poorly structured, see {} columns for polygon_number {}".format(temp, poly))
 
 
 def configure_logging():
