@@ -36,7 +36,7 @@ def test_invalid_rule_layer():
 def test_load_tables():
     util.load_config("tests/test.cfg")
     data = util.load_tables()
-    assert data["elevation"].becvalue[0] == 265
+    assert data["elevation"].becvalue[0] == 9
 
 
 # invalid types in rule polys

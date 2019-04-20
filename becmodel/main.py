@@ -2,12 +2,15 @@ import os
 import math
 import logging
 import shutil
+import subprocess
 
 import fiona
 import rasterio
 from rasterio import features
 from osgeo import gdal
 import numpy as np
+from skimage.filters.rank import majority
+from skimage.morphology import disk
 
 import bcdata
 from becmodel import util
@@ -46,7 +49,7 @@ def process(overwrite=False):
     aspect_class = os.path.join(config["wksp"], "aspect_class.tif")
     rules = os.path.join(config["wksp"], "rules.tif")
     becvalue = os.path.join(config["wksp"], "becvalue.tif")
-
+    out_tif = os.path.join(config["wksp"], "becvalue_{}.tif".format(config["cell_size"]))
     # remove all if overwrite specified
     if overwrite:
         for tif in [dem, slope, aspect, aspect_class, rules, becvalue]:
@@ -118,9 +121,7 @@ def process(overwrite=False):
     # setting output raster to becvalue for each row where criteria are met
     # by the dem/aspect/rulepolys
     becvalue_image = np.zeros(shape=shape, dtype="uint16")
-
     data = util.load_tables()
-    lookup = []
     for index, row in data["elevation"].iterrows():
         for aspect in config["aspects"]:
             becvalue_image[
@@ -129,6 +130,17 @@ def process(overwrite=False):
                 (dem_image >= row[aspect["name"]+"_low"]) &
                 (dem_image < row[aspect["name"]+"_high"])
             ] = row["becvalue"]
+
+    # Smooth by applying majority filter to output
+    # Note that skimage.filters.rank.majority is unreleased, it was merged
+    # to skimage master just 4 days ago (April 19)
+    becvalue_image = np.where(
+        slope_image < 25,
+        majority(becvalue_image, disk(5)),
+        majority(becvalue_image, disk(3))
+    )
+    # another, untested option for majority/mode filter
+    # https://pillow.readthedocs.io/en/5.1.x/reference/ImageFilter.html
 
     with rasterio.open(
             becvalue,
@@ -142,4 +154,14 @@ def process(overwrite=False):
             transform=transform,
     ) as dst:
         dst.write(becvalue_image, indexes=1)
-    log.info("{} grid created".format(becvalue))
+
+    # resample to output resolution by just calling rio warp
+    cmd = [
+        "rio",
+        "warp",
+        becvalue,
+        out_tif,
+        "--res",
+        str(config["cell_size"])
+    ]
+    subprocess.run(cmd)

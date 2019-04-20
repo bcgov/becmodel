@@ -126,11 +126,6 @@ def load_tables():
 
     validate_data(data)
 
-    # rearrange the elevation table to create a single lookup table of format:
-    # polygon_number, aspect_class, min_elev, max_elev, becvalue
-    #  1, 100, 0, 100, 3
-    #  1, 100, 100, 140, 4
-
     return data
 
 
