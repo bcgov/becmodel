@@ -3,10 +3,14 @@ import math
 import logging
 import shutil
 import subprocess
+from math import ceil
 
 import fiona
 import rasterio
 from rasterio import features
+from rasterio.transform import Affine
+from rasterio.warp import Resampling, reproject
+from rasterio.features import shapes
 from osgeo import gdal
 import numpy as np
 from skimage.filters.rank import majority
@@ -48,8 +52,8 @@ def process(overwrite=False):
     aspect = os.path.join(config["wksp"], "aspect.tif")
     aspect_class = os.path.join(config["wksp"], "aspect_class.tif")
     rules = os.path.join(config["wksp"], "rules.tif")
-    becvalue = os.path.join(config["wksp"], "becvalue.tif")
-    out_tif = os.path.join(config["wksp"], "becvalue_{}.tif".format(config["cell_size"]))
+    becvalue = os.path.join(config["wksp"], "becvalue.shp")
+
     # remove all if overwrite specified
     if overwrite:
         for tif in [dem, slope, aspect, aspect_class, rules, becvalue]:
@@ -89,6 +93,7 @@ def process(overwrite=False):
     # (so new rasters line up)
     with rasterio.open(dem) as src:
         shape = src.shape
+        l, b, r, t = src.bounds
         transform = src.transform
         height = src.height
         width = src.width
@@ -139,29 +144,52 @@ def process(overwrite=False):
         majority(becvalue_image, disk(5)),
         majority(becvalue_image, disk(3))
     )
-    # another, untested option for majority/mode filter
-    # https://pillow.readthedocs.io/en/5.1.x/reference/ImageFilter.html
 
-    with rasterio.open(
-            becvalue,
-            "w",
-            driver="GTiff",
-            dtype=rasterio.uint16,
-            count=1,
-            width=width,
-            height=height,
+    # Resample data to specified cell size
+    # https://github.com/mapbox/rasterio/blob/master/rasterio/rio/warp.py
+    res = (config["cell_size"], config["cell_size"])
+    dst_transform = Affine(res[0], 0, l, 0, -res[1], t)
+    dst_width = max(int(ceil((r - l) / res[0])), 1)
+    dst_height = max(int(ceil((t - b) / res[1])), 1)
+    becvalue_resampled = np.empty(
+        shape=(dst_height, dst_width),
+        dtype='uint16'
+    )
+    reproject(
+        becvalue_image,
+        becvalue_resampled,
+        src_transform=transform,
+        dst_transform=dst_transform,
+        src_crs=crs,
+        dst_crs=crs,
+        resampling=Resampling.nearest
+    )
+
+    # don't write resulting image for now, just needed for testing
+    #with rasterio.open(
+    #        becvalue,
+    #        "w",
+    #        driver="GTiff",
+    #        dtype=rasterio.uint16,
+    #        count=1,
+    #        width=dst_width,
+    #        height=dst_height,
+    #        crs=crs,
+    #        transform=dst_transform,
+    #) as dst:
+    #    dst.write(becvalue_resampled, indexes=1)
+
+    # write to shapefile
+    results = (
+            {'properties': {'becvalue': v}, 'geometry': s}
+            for i, (s, v)
+            in enumerate(
+                shapes(becvalue_resampled, transform=dst_transform))
+    )
+    with fiona.open(
+            becvalue, 'w',
+            driver="ESRI Shapefile",
             crs=crs,
-            transform=transform,
-    ) as dst:
-        dst.write(becvalue_image, indexes=1)
-
-    # resample to output resolution by just calling rio warp
-    cmd = [
-        "rio",
-        "warp",
-        becvalue,
-        out_tif,
-        "--res",
-        str(config["cell_size"])
-    ]
-    subprocess.run(cmd)
+            schema={'properties': [('becvalue', 'int')],
+                    'geometry': 'Polygon'}) as dst:
+        dst.writerecords(results)
