@@ -60,7 +60,9 @@ A table (csv format) with the following columns (in any order, case insensitive)
 
 ### Config file
 
-A text file that defines the parameters for the model run, overriding the defaults. A sample file is here [`sample_config.cfg`](sample_config.cfg)
+A text file that defines the parameters for the model run, overriding the defaults.
+
+See sample file [`sample_config.cfg`](sample_config.cfg)
 
 
 
@@ -77,9 +79,8 @@ Modify your config file as required and provide path of the config file as an ar
           --help           Show this message and exit.
 
       $ becmodel sample_config.cfg
-      $ becmodel sample_config.cfg -o
-        2019-04-19 12:12:49,719 becmodel.cli INFO     Initializing BEC model v0.0.3dev
-        2019-04-19 12:12:49,720 becmodel.cli INFO     Loading config from file: sample_config.cfg
-        2019-04-19 12:12:52,023 becmodel.main INFO     becmodel_tempdata/becvalue.tif grid created
+      2019-04-19 22:11:54,115 becmodel.cli INFO     Initializing BEC model v0.0.3dev
+      2019-04-19 22:11:54,115 becmodel.cli INFO     Loading config from file: sample_config.cfg
+      2019-04-19 22:11:54,975 becmodel.main INFO     becmodel_tempdata/becvalue.shp created
 
 Temp data are written to the default workspace `becmodel_tempdata` or to the folder specified by the `wskp` key in the config file.

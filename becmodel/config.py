@@ -14,10 +14,16 @@ config = {
     "expand_bounds": 1000,
     "wksp": "becmodel_tempdata",
     "log_file": "becmodel.log",
+    "flat_aspect_slope_threshold": 15,
+    "majority_filter_steep_slope_threshold": 25,
+    "majority_filter_low_slope_radius": 5,
+    "majority_filter_steep_slope_radius": 3,
+
     # define aspects as list of dicts
     # each aspect has a 'code' and a list of valid ranges as degrees azimuth
     # (0-361, an extra degree to ensure full coverage)
     # *note* aspects are not configurable through the config file interface
+
     "aspects": [
         {
             "name": "cool",
@@ -31,7 +37,7 @@ config = {
             "name": "neutral",
             "code": 200,
             "ranges": [
-                {"min": -1, "max": 0},   # flat areas are set to -1
+                {"min": -1, "max": 0},    # -1 values are flat areas
                 {"min": 45, "max": 135},
                 {"min": 270, "max": 315}
             ],

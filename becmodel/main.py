@@ -2,7 +2,6 @@ import os
 import math
 import logging
 import shutil
-import subprocess
 from math import ceil
 
 import fiona
@@ -25,7 +24,7 @@ log = logging.getLogger(__name__)
 
 
 def process(overwrite=False):
-    """ Generate becvalue raster from rules and DEM
+    """ Generate becvalue file from rules and DEM
     """
 
     # get bounds and expand by specified distance
@@ -76,7 +75,7 @@ def process(overwrite=False):
     with rasterio.open(aspect) as src:
         array1 = src.read(1)
         # set aspect to -1 for all slopes less that 15%
-        array1[slope_image < 15] = -1
+        array1[slope_image < config["flat_aspect_slope_threshold"]] = -1
         aspect_image = array1.copy()
         profile = src.profile
         for aspect in config["aspects"]:
@@ -140,9 +139,11 @@ def process(overwrite=False):
     # Note that skimage.filters.rank.majority is unreleased, it was merged
     # to skimage master just 4 days ago (April 19)
     becvalue_image = np.where(
-        slope_image < 25,
-        majority(becvalue_image, disk(5)),
-        majority(becvalue_image, disk(3))
+        slope_image < config["majority_filter_steep_slope_threshold"],
+        majority(becvalue_image,
+                 disk(config["majority_filter_low_slope_radius"])),
+        majority(becvalue_image,
+                 disk(config["majority_filter_steep_slope_radius"]))
     )
 
     # Resample data to specified cell size
@@ -193,3 +194,4 @@ def process(overwrite=False):
             schema={'properties': [('becvalue', 'int')],
                     'geometry': 'Polygon'}) as dst:
         dst.writerecords(results)
+    log.info("becmodel_tempdata/becvalue.shp created")
