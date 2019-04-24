@@ -88,6 +88,6 @@ Modify your config file as required and provide path of the config file as an ar
       $ becmodel sample_config.cfg
       2019-04-19 22:11:54,115 becmodel.cli INFO     Initializing BEC model v0.0.3dev
       2019-04-19 22:11:54,115 becmodel.cli INFO     Loading config from file: sample_config.cfg
-      2019-04-19 22:11:54,975 becmodel.main INFO     becmodel_tempdata/becvalue.shp created
+      2019-04-19 22:11:54,975 becmodel.main INFO     becmodel_tempdata/becvalue.gpkg created
 
 Temp data are written to the default workspace `becmodel_tempdata` or to the folder specified by the `wskp` key in the config file.
