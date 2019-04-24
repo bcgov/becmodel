@@ -7,13 +7,20 @@ The Large Scale Biogeoclimatic Ecosystem Classification Process generates biogeo
 
 ## Installation
 
-Installation is easiest with conda, see the [guide](doc/conda_guide.md). (Note that you can use the built in conda [Python Package Manager](https://pro.arcgis.com/en/pro-app/arcpy/get-started/what-is-conda.htm) if you have ArcGIS Pro installed.
+Installation is easiest with conda, see the [guide](doc/conda_guide.md). (Note that you can use the built in conda [Python Package Manager](https://pro.arcgis.com/en/pro-app/arcpy/get-started/what-is-conda.htm) if you have ArcGIS Pro installed and are not on a shared system.
 
 Alternatively, install via `pip install` if:
 
-- Python and pip are already installed
+- Python and `pip` are already installed
 - you are comfortable with managing your Python environment
 - if using Windows, you have [manually downloaded and installed the correct pre-compiled gdal/fiona/rasterio wheels](https://www.lfd.uci.edu/~gohlke/pythonlibs/#gdal)
+- a C++ compiler is available (required to install `scikit-image` from master branch, we need unreleased features)
+- install in this order so that `scikit-image` finds `numpy` and `cython`:
+
+        pip install numpy
+        pip install cython
+        pip install -r requirements.txt
+
 
 ## Required files
 

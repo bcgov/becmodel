@@ -6,3 +6,5 @@ gdal
 numpy
 pandas
 geopandas
+cython
+git+https://github.com/scikit-image/scikit-image@3f07484878c89dd9c4e33bed866e3c6a1fb88211#egg=scikit-image

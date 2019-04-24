@@ -13,7 +13,8 @@ from rasterio.features import shapes
 from osgeo import gdal
 import numpy as np
 from skimage.filters.rank import majority
-from skimage.morphology import disk
+from skimage.morphology import disk, remove_small_objects
+from skimage.measure import label
 
 import bcdata
 from becmodel import util
@@ -51,7 +52,7 @@ def process(overwrite=False):
     aspect = os.path.join(config["wksp"], "aspect.tif")
     aspect_class = os.path.join(config["wksp"], "aspect_class.tif")
     rules = os.path.join(config["wksp"], "rules.tif")
-    becvalue = os.path.join(config["wksp"], "becvalue.shp")
+    becvalue = os.path.join(config["wksp"], "becvalue.gpkg")
 
     # remove all if overwrite specified
     if overwrite:
@@ -138,12 +139,35 @@ def process(overwrite=False):
     # Smooth by applying majority filter to output
     # Note that skimage.filters.rank.majority is unreleased, it was merged
     # to skimage master just 4 days ago (April 19)
-    becvalue_image = np.where(
+    becvalue_filtered = np.where(
         slope_image < config["majority_filter_steep_slope_threshold"],
         majority(becvalue_image,
                  disk(config["majority_filter_low_slope_radius"])),
         majority(becvalue_image,
                  disk(config["majority_filter_steep_slope_radius"]))
+    )
+
+    # Remove areas smaller than noise removal threshold
+    # first, convert noise_removal_threshold value from ha to cells
+    # (based on 25m dem = 625m2 cell)
+    noise_threshold = int(
+        config["noise_removal_threshold"] / 625
+    )
+
+    # now find unique cell groupings (like converting to singlepart)
+    becvalue_labels = label(becvalue_filtered, connectivity=1)
+
+    # identify the areas smaller than noise removal threshold
+    mask = remove_small_objects(becvalue_labels, noise_threshold)
+
+    # Fill in the masked areas by again applying a majority filter.
+    # But, this time, use only areas bigger than noise threshold to calculate
+    # the majority, use a large filter, and apply the result only to the holes
+    # in the image.
+    becvalue_cleaned = np.where(
+        (mask == 0) & (becvalue_filtered > 0),
+        majority(becvalue_filtered, disk(10), mask=mask),
+        becvalue_filtered
     )
 
     # Resample data to specified cell size
@@ -157,7 +181,7 @@ def process(overwrite=False):
         dtype='uint16'
     )
     reproject(
-        becvalue_image,
+        becvalue_cleaned,
         becvalue_resampled,
         src_transform=transform,
         dst_transform=dst_transform,
@@ -166,21 +190,7 @@ def process(overwrite=False):
         resampling=Resampling.nearest
     )
 
-    # don't write resulting image for now, just needed for testing
-    #with rasterio.open(
-    #        becvalue,
-    #        "w",
-    #        driver="GTiff",
-    #        dtype=rasterio.uint16,
-    #        count=1,
-    #        width=dst_width,
-    #        height=dst_height,
-    #        crs=crs,
-    #        transform=dst_transform,
-    #) as dst:
-    #    dst.write(becvalue_resampled, indexes=1)
-
-    # write to shapefile
+    # write to file
     results = (
             {'properties': {'becvalue': v}, 'geometry': s}
             for i, (s, v)
@@ -189,9 +199,9 @@ def process(overwrite=False):
     )
     with fiona.open(
             becvalue, 'w',
-            driver="ESRI Shapefile",
+            driver="GPKG",
             crs=crs,
             schema={'properties': [('becvalue', 'int')],
                     'geometry': 'Polygon'}) as dst:
         dst.writerecords(results)
-    log.info("becmodel_tempdata/becvalue.shp created")
+    log.info("becmodel_tempdata/becvalue.gpkg created")
