@@ -161,9 +161,10 @@ def process(overwrite=False):
     mask = remove_small_objects(becvalue_labels, noise_threshold)
 
     # Fill in the masked areas by again applying a majority filter.
-    # But, this time, use only areas bigger than noise threshold to calculate
-    # the majority, use a large filter, and apply the result only to the holes
-    # in the image.
+    # But, this time,
+    # - exclude areas smaller than noise threshold from majority filter calc
+    # - use 10 cell radius filter
+    # - only use the result to fill in the holes
     becvalue_cleaned = np.where(
         (mask == 0) & (becvalue_filtered > 0),
         majority(becvalue_filtered, disk(10), mask=mask),
