@@ -24,7 +24,7 @@ from becmodel.config import config
 log = logging.getLogger(__name__)
 
 
-def process(overwrite=False):
+def process(overwrite=False, qa=False):
     """ Generate becvalue file from rules and DEM
     """
 
@@ -170,6 +170,28 @@ def process(overwrite=False):
         majority(becvalue_filtered, disk(10), mask=mask),
         becvalue_filtered
     )
+
+    # if specified, dump intermediate rasters to disk for review
+    if qa:
+        for raster in [
+            "becvalue_image",
+            "becvalue_filtered",
+            "becvalue_labels",
+            "mask",
+            "becvalue_cleaned"
+        ]:
+            with rasterio.open(
+                os.path.join(config["wksp"], raster+".tif"),
+                "w",
+                driver="GTiff",
+                dtype=rasterio.uint16,
+                count=1,
+                width=width,
+                height=height,
+                crs=crs,
+                transform=transform,
+            ) as dst:
+                dst.write(locals()[raster].astype(np.uint16), indexes=1)
 
     # Resample data to specified cell size
     # https://github.com/mapbox/rasterio/blob/master/rasterio/rio/warp.py
