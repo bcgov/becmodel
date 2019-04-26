@@ -48,7 +48,8 @@ def load_config(config_file):
 
     # convert int config values to int
     for key in [
-        "cell_size",
+        "output_cell_size",
+        "dem_cell_size",
         "smoothing_tolerance",
         "generalize_tolerance",
         "parkland_removeal_threshold",

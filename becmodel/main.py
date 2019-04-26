@@ -13,7 +13,7 @@ from rasterio.features import shapes
 from osgeo import gdal
 import numpy as np
 from skimage.filters.rank import majority
-from skimage.morphology import disk, remove_small_objects
+from skimage.morphology import rectangle, remove_small_objects
 from skimage.measure import label
 
 import bcdata
@@ -62,7 +62,7 @@ def process(overwrite=False, qa=False):
 
     # get dem, generate slope and aspect
     if not os.path.exists(dem):
-        bcdata.get_dem(bounds, dem)
+        bcdata.get_dem(bounds, dem, resolution=config["dem_cell_size"])
     if not os.path.exists(aspect):
         gdal.DEMProcessing(aspect, dem, "aspect", zeroForFlat=True)
     if not os.path.exists(slope):
@@ -126,21 +126,21 @@ def process(overwrite=False, qa=False):
             ] = row["becvalue"]
 
     # Smooth by applying majority filter to output
-    # Note that skimage.filters.rank.majority is unreleased, it was merged
-    # to skimage master just 4 days ago (April 19)
+    # Note that skimage.filters.rank.majority is currently unreleased
+    low_slope_size = ceil((config["majority_filter_low_slope_size"] / config["dem_cell_size"]))
+    steep_slope_size = ceil((config["majority_filter_steep_slope_size"] / config["dem_cell_size"]))
     becvalue_filtered = np.where(
         slope_image < config["majority_filter_steep_slope_threshold"],
         majority(becvalue_image,
-                 disk(config["majority_filter_low_slope_radius"])),
+                 rectangle(width=low_slope_size, height=low_slope_size)),
         majority(becvalue_image,
-                 disk(config["majority_filter_steep_slope_radius"]))
+                 rectangle(width=steep_slope_size, height=steep_slope_size))
     )
 
     # Remove areas smaller than noise removal threshold
-    # first, convert noise_removal_threshold value from ha to cells
-    # (based on 25m dem = 625m2 cell)
+    # first, convert noise_removal_threshold value from m2 to n cells
     noise_threshold = int(
-        config["noise_removal_threshold"] / 625
+        config["noise_removal_threshold"] / (config["dem_cell_size"] **2)
     )
 
     # now find unique cell groupings (like converting to singlepart)
@@ -152,11 +152,10 @@ def process(overwrite=False, qa=False):
     # Fill in the masked areas by again applying a majority filter.
     # But, this time,
     # - exclude areas smaller than noise threshold from majority filter calc
-    # - use 10 cell radius filter
     # - only use the result to fill in the holes
     becvalue_cleaned = np.where(
         (mask == 0) & (becvalue_filtered > 0),
-        majority(becvalue_filtered, disk(10), mask=mask),
+        majority(becvalue_filtered, rectangle(height=10, width=10), mask=mask),
         becvalue_filtered
     )
 
@@ -185,7 +184,7 @@ def process(overwrite=False, qa=False):
 
     # Resample data to specified cell size
     # https://github.com/mapbox/rasterio/blob/master/rasterio/rio/warp.py
-    res = (config["cell_size"], config["cell_size"])
+    res = (config["output_cell_size"], config["output_cell_size"])
     dst_transform = Affine(res[0], 0, l, 0, -res[1], t)
     dst_width = max(int(ceil((r - l) / res[0])), 1)
     dst_height = max(int(ceil((t - b) / res[1])), 1)

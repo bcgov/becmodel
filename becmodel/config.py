@@ -6,7 +6,8 @@ config = {
     "rulepolys_layer": "rule_polys",
     "elevation": "tests/data/elevation.csv",
     "becmaster": "tests/data/becmaster.csv",
-    "cell_size": 50,
+    "output_cell_size": 50,
+    "dem_cell_size": 25,
     "smoothing_tolerance": 50,
     "generalize_tolerance": 200,
     "parkland_removeal_threshold": 2500000,
@@ -16,8 +17,8 @@ config = {
     "log_file": "becmodel.log",
     "flat_aspect_slope_threshold": 15,
     "majority_filter_steep_slope_threshold": 25,
-    "majority_filter_low_slope_radius": 5,
-    "majority_filter_steep_slope_radius": 3,
+    "majority_filter_low_slope_size": 250,
+    "majority_filter_steep_slope_size": 150,
 
     # define aspects as list of dicts
     # each aspect has a 'code' and a list of valid ranges as degrees azimuth

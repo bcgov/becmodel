@@ -82,7 +82,7 @@ def test_load_invalid_elevation_bands():
 
 
 def test_process(tmpdir):
-    """ Check that data load is successful
+    """ Check that outputs are created, not necessarily correct...
     """
     util.load_config("tests/test.cfg")
     config["wksp"] = str(tmpdir)
