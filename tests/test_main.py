@@ -90,5 +90,4 @@ def test_process(tmpdir):
     assert os.path.exists(tmpdir.join("dem.tif"))
     assert os.path.exists(tmpdir.join("aspect.tif"))
     assert os.path.exists(tmpdir.join("aspect_class.tif"))
-    assert os.path.exists(tmpdir.join("rules.tif"))
-    assert os.path.exists(tmpdir.join("becvalue.shp"))
+    assert os.path.exists(tmpdir.join("becvalue.gpkg"))
