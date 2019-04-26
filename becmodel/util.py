@@ -80,29 +80,46 @@ def validate_config():
 def load_tables():
     """load data from files specified in config and validate
     """
+
+    # to support useing existing input files, remap the short dbase compatible
+    # column names to standard
+    elevation_column_remap = {
+        "classnm": "class_name",
+        "neut_low": "neutral_low",
+        "neut_high": "neutral_high",
+        "polygonnbr": "polygon_number"
+    }
+    rules_column_remap = {
+        "polygonnbr": "polygon_number",
+        "polygondes": "polygon_description"
+    }
+
     data = {}
     try:
-        data["elevation"] = pd.read_csv(
-            config["elevation"],
-            dtype={
-                "becvalue": np.int32,
+        # -- elevation
+        data["elevation"] = pd.read_csv(config["elevation"])
+        data["elevation"].rename(columns=str.lower, inplace=True)
+        data["elevation"].rename(columns=elevation_column_remap, inplace=True)
+        data["elevation"].astype(
+            {
+                "becvalue": np.int16,
                 "beclabel": np.str,
                 "class_name": np.str,
-                # todo
-                # derive aspect prefixes from names in config["aspects"]
-                "cool_low": np.int32,
-                "cool_high": np.int32,
-                "neutral_low": np.int32,
-                "neutral_high": np.int32,
-                "warm_low": np.int32,
-                "warm_high": np.int32,
-                "polygon_number": np.int32,
+                "cool_low": np.int16,
+                "cool_high": np.int16,
+                "neutral_low": np.int16,
+                "neutral_high": np.int16,
+                "warm_low": np.int16,
+                "warm_high": np.int16,
+                "polygon_number": np.int16,
             },
         )
+
+        # -- becmaster
         data["becmaster"] = pd.read_csv(
             config["becmaster"],
             dtype={
-                "becvalue": np.int32,
+                "becvalue": np.int16,
                 "beclabel": np.str,
                 "zone": np.str,
                 "subzone": np.str,
@@ -110,19 +127,23 @@ def load_tables():
                 "phase": np.str,
             },
         )
+        data["becmaster"].rename(columns=str.lower, inplace=True)
+
+        # -- rule polys
         data["rulepolys"] = gpd.read_file(
             config["rulepolys_file"], layer=config["rulepolys_layer"]
         )
+        data["rulepolys"].rename(columns=str.lower, inplace=True)
+        data["rulepolys"].rename(columns=rules_column_remap, inplace=True)
         data["rulepolys"] = data["rulepolys"].astype(
-            {"polygon_number": np.int32, "polygon_description": np.str},
+            {"polygon_number": np.int16, "polygon_description": np.str},
             errors="raise"
         )
     except:
-        raise DataValueError("Value(s) in input files incorrect, check data types")
-
-    # lowercaseify the column names
-    for df in data.values():
-        df.columns = df.columns.str.lower()
+        raise DataValueError(
+            "Column names or value(s) in input files incorrect. "
+            "Check column names and data types"
+        )
 
     validate_data(data)
 

@@ -100,33 +100,22 @@ def process(overwrite=False, qa=False):
         crs = src.crs
         dem_image = src.read(1)
 
-    # burn rule polygon number to raster using above DEM shape/transform
-    with fiona.open(config["rulepolys_file"], layer=config["rulepolys_layer"]) as src:
+    # load and validate inputs (rule polys, elevation table, becmaster)
+    data = util.load_tables()
 
-        rules_image = features.rasterize(
-            ((s["geometry"], int(s["properties"]["polygon_number"])) for s in src),
-            out_shape=shape,
-            transform=transform,
-            all_touched=False,
-        )
-        with rasterio.open(
-            rules,
-            "w",
-            driver="GTiff",
-            dtype=rasterio.uint16,
-            count=1,
-            width=width,
-            height=height,
-            crs=crs,
-            transform=transform,
-        ) as dst:
-            dst.write(rules_image, indexes=1)
+    # burn rule polygon number to raster using above DEM shape/transform
+    rules_image = features.rasterize(
+        ((geom, value) for geom, value in zip(data["rulepolys"].geometry, data["rulepolys"].polygon_number)),
+        out_shape=shape,
+        transform=transform,
+        all_touched=False,
+        dtype=np.uint16,
+    )
 
     # generate becvalue raster by iterating through elevation table,
     # setting output raster to becvalue for each row where criteria are met
     # by the dem/aspect/rulepolys
     becvalue_image = np.zeros(shape=shape, dtype="uint16")
-    data = util.load_tables()
     for index, row in data["elevation"].iterrows():
         for aspect in config["aspects"]:
             becvalue_image[
@@ -178,7 +167,8 @@ def process(overwrite=False, qa=False):
             "becvalue_filtered",
             "becvalue_labels",
             "mask",
-            "becvalue_cleaned"
+            "becvalue_cleaned",
+            "rules_image"
         ]:
             with rasterio.open(
                 os.path.join(config["wksp"], raster+".tif"),
