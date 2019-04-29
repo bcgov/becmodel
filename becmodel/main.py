@@ -54,12 +54,6 @@ def process(overwrite=False, qa=False):
     rules = os.path.join(config["wksp"], "rules.tif")
     becvalue = os.path.join(config["wksp"], "becvalue.gpkg")
 
-    # remove all if overwrite specified
-    if overwrite:
-        for tif in [dem, slope, aspect, aspect_class, rules, becvalue]:
-            if os.path.exists(tif):
-                os.remove(tif)
-
     # get dem, generate slope and aspect
     if not os.path.exists(dem):
         bcdata.get_dem(bounds, dem, resolution=config["dem_cell_size"])

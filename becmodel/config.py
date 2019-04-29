@@ -8,9 +8,9 @@ config = {
     "becmaster": "tests/data/becmaster.csv",
     "output_cell_size": 50,
     "dem_cell_size": 25,
-    "smoothing_tolerance": 50,
-    "generalize_tolerance": 200,
-    "parkland_removeal_threshold": 2500000,
+    "smoothing_tolerance": 50,                      # not used
+    "generalize_tolerance": 200,                    # not used
+    "parkland_removal_threshold": 2500000,
     "noise_removal_threshold": 250000,
     "expand_bounds": 1000,
     "wksp": "becmodel_tempdata",
