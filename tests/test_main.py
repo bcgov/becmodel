@@ -9,6 +9,11 @@ from becmodel import util
 from becmodel.util import ConfigError, ConfigValueError, DataValueError
 
 
+def test_align():
+    bounds = [1445933.56, 467399.57, 1463229.87, 488903.09]
+    assert util.align(bounds) == (1445887.5, 467287.5, 1463387.5, 489087.5)
+
+
 def test_invalid_config():
     with pytest.raises(ConfigError):
         util.load_config("tests/test_invalid_config.cfg")

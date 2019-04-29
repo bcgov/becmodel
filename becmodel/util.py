@@ -1,3 +1,4 @@
+from math import trunc
 import os
 import configparser
 import logging
@@ -34,6 +35,15 @@ def make_sure_path_exists(path):
         pass
 
 
+def align(bounds):
+    """Adjust input bounds to align with Hectares BC raster
+    (round bounds to nearest km, then shift by 12.5m)
+    """
+    ll = [((trunc(b / 100) * 100) - 12.5) for b in bounds[:2]]
+    ur = [(((trunc(b / 100) + 1) * 100) + 87.5) for b in bounds[2:]]
+    return (ll[0], ll[1], ur[0], ur[1])
+
+
 def load_config(config_file):
     """Read provided config file, overwriting default config values
     """
@@ -52,7 +62,7 @@ def load_config(config_file):
         "dem_cell_size",
         "smoothing_tolerance",
         "generalize_tolerance",
-        "parkland_removeal_threshold",
+        "parkland_removal_threshold",
         "noise_removal_threshold",
         "expand_bounds",
     ]:
