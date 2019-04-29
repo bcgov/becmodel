@@ -22,8 +22,8 @@ config = {
     # define aspects as list of dicts
     # each aspect has a 'code' and a list of valid ranges as degrees azimuth
     # (0-361, an extra degree to ensure full coverage)
-    # *note* aspects are not configurable through the config file interface
-
+    # ** NOTE **
+    # ** aspects are *not* configurable through the config file interface **
     "aspects": [
         {
             "name": "cool",

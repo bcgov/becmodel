@@ -54,7 +54,6 @@ def process(overwrite=False, qa=False):
     dem = os.path.join(config["wksp"], "dem.tif")
     slope = os.path.join(config["wksp"], "slope.tif")
     aspect = os.path.join(config["wksp"], "aspect.tif")
-    aspect_class = os.path.join(config["wksp"], "aspect_class.tif")
     rules = os.path.join(config["wksp"], "rules.tif")
     becvalue = os.path.join(config["wksp"], "becvalue.gpkg")
 
@@ -75,23 +74,18 @@ def process(overwrite=False, qa=False):
         array1 = src.read(1)
         # set aspect to -1 for all slopes less that 15%
         array1[slope_image < config["flat_aspect_slope_threshold"]] = -1
-        aspect_image = array1.copy()
+        aspect_class = array1.copy()
         profile = src.profile
         for aspect in config["aspects"]:
             for rng in aspect["ranges"]:
-                aspect_image[
+                aspect_class[
                     (array1 >= rng["min"]) & (array1 < rng["max"])
                 ] = aspect["code"]
 
-    if not os.path.exists(aspect_class):
-        with rasterio.open(aspect_class, "w", **profile) as dst:
-            dst.write(aspect_image, 1)
-
-    # load dem into memory and get the shape and affine transform
+    # load dem into memory and get the shape / transform
     # (so new rasters line up)
     with rasterio.open(dem) as src:
         shape = src.shape
-        l, b, r, t = src.bounds
         transform = src.transform
         height = src.height
         width = src.width
@@ -118,7 +112,7 @@ def process(overwrite=False, qa=False):
         for aspect in config["aspects"]:
             becvalue_image[
                 (rules_image == row["polygon_number"]) &
-                (aspect_image == aspect["code"]) &
+                (aspect_class == aspect["code"]) &
                 (dem_image >= row[aspect["name"]+"_low"]) &
                 (dem_image < row[aspect["name"]+"_high"])
             ] = row["becvalue"]
@@ -165,7 +159,8 @@ def process(overwrite=False, qa=False):
             "becvalue_labels",
             "mask",
             "becvalue_cleaned",
-            "rules_image"
+            "rules_image",
+            "aspect_class"
         ]:
             with rasterio.open(
                 os.path.join(config["wksp"], raster+".tif"),
@@ -180,32 +175,12 @@ def process(overwrite=False, qa=False):
             ) as dst:
                 dst.write(locals()[raster].astype(np.uint16), indexes=1)
 
-    # Resample data to specified cell size
-    # https://github.com/mapbox/rasterio/blob/master/rasterio/rio/warp.py
-    res = (config["cell_size"], config["cell_size"])
-    dst_transform = Affine(res[0], 0, l, 0, -res[1], t)
-    dst_width = max(int(ceil((r - l) / res[0])), 1)
-    dst_height = max(int(ceil((t - b) / res[1])), 1)
-    becvalue_resampled = np.empty(
-        shape=(dst_height, dst_width),
-        dtype='uint16'
-    )
-    reproject(
-        becvalue_cleaned,
-        becvalue_resampled,
-        src_transform=transform,
-        dst_transform=dst_transform,
-        src_crs=crs,
-        dst_crs=crs,
-        resampling=Resampling.nearest
-    )
-
     # write to file
     results = (
             {'properties': {'becvalue': v}, 'geometry': s}
             for i, (s, v)
             in enumerate(
-                shapes(becvalue_resampled, transform=dst_transform))
+                shapes(becvalue_cleaned, transform=transform))
     )
     with fiona.open(
             becvalue, 'w',
