@@ -41,6 +41,10 @@ def process(overwrite=False, qa=False):
             ]
         ]
 
+    # DEM returns a raster with bounds based on our request -
+    # align bounds of rulepolys to Hectares BC raster
+    bounds = util.align(bounds)
+
     if overwrite and os.path.exists(config["wksp"]):
         shutil.rmtree(config["wksp"])
 
@@ -56,7 +60,7 @@ def process(overwrite=False, qa=False):
 
     # get dem, generate slope and aspect
     if not os.path.exists(dem):
-        bcdata.get_dem(bounds, dem, resolution=config["dem_cell_size"])
+        bcdata.get_dem(bounds, dem, resolution=config["cell_size"])
     if not os.path.exists(aspect):
         gdal.DEMProcessing(aspect, dem, "aspect", zeroForFlat=True)
     if not os.path.exists(slope):
@@ -121,8 +125,8 @@ def process(overwrite=False, qa=False):
 
     # Smooth by applying majority filter to output
     # Note that skimage.filters.rank.majority is currently unreleased
-    low_slope_size = ceil((config["majority_filter_low_slope_size"] / config["dem_cell_size"]))
-    steep_slope_size = ceil((config["majority_filter_steep_slope_size"] / config["dem_cell_size"]))
+    low_slope_size = ceil((config["majority_filter_low_slope_size"] / config["cell_size"]))
+    steep_slope_size = ceil((config["majority_filter_steep_slope_size"] / config["cell_size"]))
     becvalue_filtered = np.where(
         slope_image < config["majority_filter_steep_slope_threshold"],
         majority(becvalue_image,
@@ -134,7 +138,7 @@ def process(overwrite=False, qa=False):
     # Remove areas smaller than noise removal threshold
     # first, convert noise_removal_threshold value from m2 to n cells
     noise_threshold = int(
-        config["noise_removal_threshold"] / (config["dem_cell_size"] **2)
+        config["noise_removal_threshold"] / (config["cell_size"] **2)
     )
 
     # now find unique cell groupings (like converting to singlepart)
@@ -178,7 +182,7 @@ def process(overwrite=False, qa=False):
 
     # Resample data to specified cell size
     # https://github.com/mapbox/rasterio/blob/master/rasterio/rio/warp.py
-    res = (config["output_cell_size"], config["output_cell_size"])
+    res = (config["cell_size"], config["cell_size"])
     dst_transform = Affine(res[0], 0, l, 0, -res[1], t)
     dst_width = max(int(ceil((r - l) / res[0])), 1)
     dst_height = max(int(ceil((t - b) / res[1])), 1)

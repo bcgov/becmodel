@@ -6,8 +6,7 @@ config = {
     "rulepolys_layer": "rule_polys",
     "elevation": "tests/data/elevation.csv",
     "becmaster": "tests/data/becmaster.csv",
-    "output_cell_size": 50,
-    "dem_cell_size": 25,
+    "cell_size": 50,
     "smoothing_tolerance": 50,                      # not used
     "generalize_tolerance": 200,                    # not used
     "parkland_removal_threshold": 2500000,

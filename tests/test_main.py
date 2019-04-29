@@ -38,6 +38,27 @@ def test_invalid_rule_layer():
         util.validate_config()
 
 
+def test_invalid_cell_size1():
+    with pytest.raises(ConfigValueError):
+            util.load_config("tests/test.cfg")
+            config["cell_size"] = 110
+            util.validate_config()
+
+
+def test_invalid_cell_size2():
+    with pytest.raises(ConfigValueError):
+            util.load_config("tests/test.cfg")
+            config["cell_size"] = 20
+            util.validate_config()
+
+
+def test_invalid_cell_size3():
+    with pytest.raises(ConfigValueError):
+            util.load_config("tests/test.cfg")
+            config["cell_size"] = 26
+            util.validate_config()
+
+
 def test_load_tables():
     util.load_config("tests/test.cfg")
     data = util.load_tables()

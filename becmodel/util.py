@@ -36,8 +36,9 @@ def make_sure_path_exists(path):
 
 
 def align(bounds):
-    """Adjust input bounds to align with Hectares BC raster
-    (round bounds to nearest km, then shift by 12.5m)
+    """
+    Adjust input bounds to align with Hectares BC raster
+    (round bounds to nearest 100m, then shift by 12.5m)
     """
     ll = [((trunc(b / 100) * 100) - 12.5) for b in bounds[:2]]
     ur = [(((trunc(b / 100) + 1) * 100) + 87.5) for b in bounds[2:]]
@@ -58,8 +59,7 @@ def load_config(config_file):
 
     # convert int config values to int
     for key in [
-        "output_cell_size",
-        "dem_cell_size",
+        "cell_size",
         "smoothing_tolerance",
         "generalize_tolerance",
         "parkland_removal_threshold",
@@ -85,6 +85,11 @@ def validate_config():
             "config {}: {} does not exist in {}".format(
                 key, config["rulepolys_layer"], config["rulepolys_file"]
             )
+        )
+    # for alignment to work, cell size must be <= 100m
+    if config["cell_size"] < 25 or config["cell_size"] > 100 or config["cell_size"] % 5 != 0 :
+        raise ConfigValueError(
+            "cell size {} invalid - must be a multiple of 5 from 25-100".format(str(config["cell_size"]))
         )
 
 
