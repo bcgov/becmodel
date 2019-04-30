@@ -76,15 +76,15 @@ def load(config_file=None, overwrite=False):
 
     # load and classify aspect
     with rasterio.open(os.path.join(config["wksp"], "aspect.tif")) as src:
-        array1 = src.read(1)
+        data["aspect"] = src.read(1)
         # set aspect to -1 for all slopes less that 15%
-        array1[data["slope"] < config["flat_aspect_slope_threshold"]] = -1
-        data["aspect_class"] = array1.copy()
+        data["aspect"][data["slope"] < config["flat_aspect_slope_threshold"]] = -1
+        data["aspect_class"] = data["aspect"].copy()
         profile = src.profile
         for aspect in config["aspects"]:
             for rng in aspect["ranges"]:
                 data["aspect_class"][
-                    (array1 >= rng["min"]) & (array1 < rng["max"])
+                    (data["aspect"] >= rng["min"]) & (data["aspect"] < rng["max"])
                 ] = aspect["code"]
 
     # load dem into memory and get the shape / transform
