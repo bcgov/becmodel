@@ -17,9 +17,9 @@ log = logging.getLogger(__name__)
 @click.argument("config_file", type=click.Path(exists=True))
 def cli(config_file, overwrite, qa, validate):
     log.info("Initializing BEC model v{}".format(becmodel.__version__))
-    log.info("Loading config from file: %s", config_file)
-    util.load_config(config_file)
+
     if validate:
-        util.load_tables()
+        becmodel.validate(config_file=config_file)
     else:
-        becmodel.process(overwrite, qa)
+        data = becmodel.load(config_file=config_file, overwrite=overwrite)
+        becmodel.write(data, qa)

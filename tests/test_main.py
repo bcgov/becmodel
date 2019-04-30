@@ -107,12 +107,13 @@ def test_load_invalid_elevation_bands():
         util.validate_data(data)
 
 
-def test_process(tmpdir):
+def test_run(tmpdir):
     """ Check that outputs are created, not necessarily correct...
     """
     util.load_config("tests/test.cfg")
     config["wksp"] = str(tmpdir)
-    becmodel.process()
+    data = becmodel.load()
+    becmodel.write(data)
     assert os.path.exists(tmpdir.join("dem.tif"))
     assert os.path.exists(tmpdir.join("aspect.tif"))
     assert os.path.exists(tmpdir.join("becmodel.gpkg"))

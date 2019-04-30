@@ -11,6 +11,8 @@ import fiona
 
 from becmodel.config import config
 
+log = logging.getLogger(__name__)
+
 
 class ConfigError(Exception):
     """Configuration key error"""
@@ -48,6 +50,7 @@ def align(bounds):
 def load_config(config_file):
     """Read provided config file, overwriting default config values
     """
+    log.info("Loading config from file: %s", config_file)
     cfg = configparser.ConfigParser()
     cfg.read(config_file)
     cfg_dict = dict(cfg["CONFIG"])
