@@ -13,6 +13,8 @@ config = {
     "noise_removal_threshold": 250000,
     "expand_bounds": 1000,
     "wksp": "becmodel_tempdata",
+    "out_file": "becmodel.gpkg",
+    "out_layer": "becvalue",
     "log_file": "becmodel.log",
     "flat_aspect_slope_threshold": 15,
     "majority_filter_steep_slope_threshold": 25,

@@ -7,8 +7,6 @@ from math import ceil
 import fiona
 import rasterio
 from rasterio import features
-from rasterio.transform import Affine
-from rasterio.warp import Resampling, reproject
 from rasterio.features import shapes
 from osgeo import gdal
 import numpy as np
@@ -28,49 +26,47 @@ def process(overwrite=False, qa=False):
     """ Generate becvalue file from rules and DEM
     """
 
-    # get bounds and expand by specified distance
-    with fiona.open(config["rulepolys_file"], layer=config["rulepolys_layer"]) as src:
-        bump = config["expand_bounds"]
-        bounds = [
-            math.trunc(b)
-            for b in [
-                src.bounds[0] - bump,
-                src.bounds[1] - bump,
-                src.bounds[2] + bump,
-                src.bounds[3] + bump,
-            ]
-        ]
+    # load and validate inputs (rule polys, elevation table, becmaster)
+    data = util.load_tables()
 
-    # DEM returns a raster with bounds based on our request -
-    # align bounds of rulepolys to Hectares BC raster
-    bounds = util.align(bounds)
+    # get bounds from gdf and align to Hectares BC raster
+    bounds = util.align(list(data["rulepolys"].geometry.total_bounds))
 
+    # confirm workspace exists, overwrite if specified
     if overwrite and os.path.exists(config["wksp"]):
         shutil.rmtree(config["wksp"])
-
     util.make_sure_path_exists(config["wksp"])
 
-    # define paths to output files - just to make code a bit more compact
-    dem = os.path.join(config["wksp"], "dem.tif")
-    slope = os.path.join(config["wksp"], "slope.tif")
-    aspect = os.path.join(config["wksp"], "aspect.tif")
-    rules = os.path.join(config["wksp"], "rules.tif")
-    becvalue = os.path.join(config["wksp"], "becvalue.gpkg")
+    # get dem, generate slope and aspect (these are always written to file)
+    if not os.path.exists(os.path.join(config["wksp"], "dem.tif")):
+        bcdata.get_dem(
+            bounds,
+            os.path.join(config["wksp"], "dem.tif"),
+            resolution=config["cell_size"]
+        )
 
-    # get dem, generate slope and aspect
-    if not os.path.exists(dem):
-        bcdata.get_dem(bounds, dem, resolution=config["cell_size"])
-    if not os.path.exists(aspect):
-        gdal.DEMProcessing(aspect, dem, "aspect", zeroForFlat=True)
-    if not os.path.exists(slope):
-        gdal.DEMProcessing(slope, dem, "slope", slopeFormat="percent")
+    if not os.path.exists(os.path.join(config["wksp"], "slope.tif")):
+        gdal.DEMProcessing(
+            os.path.join(config["wksp"], "slope.tif"),
+            os.path.join(config["wksp"], "dem.tif"),
+            "slope",
+            slopeFormat="percent"
+        )
 
-    # load slope
-    with rasterio.open(slope) as src:
+    if not os.path.exists(os.path.join(config["wksp"], "aspect.tif")):
+        gdal.DEMProcessing(
+            os.path.join(config["wksp"], "aspect.tif"),
+            os.path.join(config["wksp"], "dem.tif"),
+            "aspect",
+            zeroForFlat=True
+        )
+
+    # load slope from file
+    with rasterio.open(os.path.join(config["wksp"], "slope.tif")) as src:
         slope_image = src.read(1)
 
-    # classify aspect
-    with rasterio.open(aspect) as src:
+    # load and classify aspect
+    with rasterio.open(os.path.join(config["wksp"], "aspect.tif")) as src:
         array1 = src.read(1)
         # set aspect to -1 for all slopes less that 15%
         array1[slope_image < config["flat_aspect_slope_threshold"]] = -1
@@ -84,7 +80,7 @@ def process(overwrite=False, qa=False):
 
     # load dem into memory and get the shape / transform
     # (so new rasters line up)
-    with rasterio.open(dem) as src:
+    with rasterio.open(os.path.join(config["wksp"], "dem.tif")) as src:
         shape = src.shape
         transform = src.transform
         height = src.height
@@ -92,10 +88,7 @@ def process(overwrite=False, qa=False):
         crs = src.crs
         dem_image = src.read(1)
 
-    # load and validate inputs (rule polys, elevation table, becmaster)
-    data = util.load_tables()
-
-    # burn rule polygon number to raster using above DEM shape/transform
+    # burn rule polygon number to raster using DEM shape/transform
     rules_image = features.rasterize(
         ((geom, value) for geom, value in zip(data["rulepolys"].geometry, data["rulepolys"].polygon_number)),
         out_shape=shape,
@@ -151,7 +144,7 @@ def process(overwrite=False, qa=False):
         becvalue_filtered
     )
 
-    # if specified, dump intermediate rasters to disk for review
+    # if specified, dump all intermediate rasters to disk for review
     if qa:
         for raster in [
             "becvalue_image",
@@ -177,16 +170,18 @@ def process(overwrite=False, qa=False):
 
     # write to file
     results = (
-            {'properties': {'becvalue': v}, 'geometry': s}
+            {"properties": {"becvalue": v}, "geometry": s}
             for i, (s, v)
             in enumerate(
                 shapes(becvalue_cleaned, transform=transform))
     )
     with fiona.open(
-            becvalue, 'w',
+            os.path.join(config["wksp"], config["out_file"]),
+            "w",
+            layer=config["out_layer"],
             driver="GPKG",
             crs=crs,
-            schema={'properties': [('becvalue', 'int')],
-                    'geometry': 'Polygon'}) as dst:
+            schema={"properties": [("becvalue", "int")],
+                    "geometry": "Polygon"}) as dst:
         dst.writerecords(results)
-    log.info("becmodel_tempdata/becvalue.gpkg created")
+    log.info("Output {} created".format(os.path.join(config["wksp"], config["out_file"])))

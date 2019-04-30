@@ -151,10 +151,12 @@ def load_tables():
         )
         data["rulepolys"].rename(columns=str.lower, inplace=True)
         data["rulepolys"].rename(columns=rules_column_remap, inplace=True)
-        data["rulepolys"] = data["rulepolys"].astype(
-            {"polygon_number": np.int16, "polygon_description": np.str},
-            errors="raise"
-        )
+        # casting these two columns removes the geoseries designation, just
+        # presume that the provided poygon_number data is integer
+        #data["rulepolys"] = data["rulepolys"].astype(
+        #    {"polygon_number": np.int16, "polygon_description": np.str},
+        #    errors="raise"
+        #)
     except:
         raise DataValueError(
             "Column names or value(s) in input files incorrect. "
