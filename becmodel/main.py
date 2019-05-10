@@ -14,6 +14,7 @@ from skimage.morphology import rectangle, remove_small_objects
 from skimage.measure import label
 
 import bcdata
+import becmodel
 from becmodel import util
 
 
@@ -25,8 +26,10 @@ class BECModel(object):
     """
 
     def __init__(self, config_file=None):
+        log.info("Initializing BEC model v{}".format(becmodel.__version__))
         self.config_file = config_file
         self.config = util.load_config(self.config_file)
+        util.configure_logging(self.config)
 
     def update_config(self, update_dict):
         self.config.update(update_dict)
@@ -34,7 +37,7 @@ class BECModel(object):
     def validate(self):
         self.data = util.load_tables(self.config)
 
-    def load(self, overwrite=False):
+    def run(self, overwrite=False):
         """ load input data, do model calculations
         """
         config = self.config

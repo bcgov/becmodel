@@ -51,26 +51,28 @@ def align(bounds):
 def load_config(config_file):
     """Read provided config file, overwriting default config values
     """
-    log.info("Loading config from file: %s", config_file)
-    cfg = configparser.ConfigParser()
-    cfg.read(config_file)
-    cfg_dict = dict(cfg["CONFIG"])
     config = defaultconfig
-    for key in cfg_dict:
-        if key not in config.keys():
-            raise ConfigError("Config key {} is invalid".format(key))
-        config[key] = cfg_dict[key]
+    if config_file:
+        log.info("Loading config from file: %s", config_file)
+        cfg = configparser.ConfigParser()
+        cfg.read(config_file)
+        cfg_dict = dict(cfg["CONFIG"])
 
-    # convert int config values to int
-    for key in [
-        "cell_size",
-        "smoothing_tolerance",
-        "generalize_tolerance",
-        "parkland_removal_threshold",
-        "noise_removal_threshold",
-        "expand_bounds",
-    ]:
-        config[key] = int(config[key])
+        for key in cfg_dict:
+            if key not in config.keys():
+                raise ConfigError("Config key {} is invalid".format(key))
+            config[key] = cfg_dict[key]
+
+        # convert int config values to int
+        for key in [
+            "cell_size",
+            "smoothing_tolerance",
+            "generalize_tolerance",
+            "parkland_removal_threshold",
+            "noise_removal_threshold",
+            "expand_bounds",
+        ]:
+            config[key] = int(config[key])
 
     validate_config(config)
     return config

@@ -1,13 +1,6 @@
-import logging
-
 import click
 
-import becmodel
-from becmodel import util
-
-
-util.configure_logging()
-log = logging.getLogger(__name__)
+from becmodel import BECModel
 
 
 @click.command()
@@ -16,10 +9,11 @@ log = logging.getLogger(__name__)
 @click.option("-qa", "--qa", is_flag=True)
 @click.argument("config_file", type=click.Path(exists=True))
 def cli(config_file, overwrite, qa, validate):
-    log.info("Initializing BEC model v{}".format(becmodel.__version__))
-
+    BM = BECModel(config_file)
     if validate:
-        becmodel.validate(config_file=config_file)
+        BM.validate()
+        # presume that this only happens if no errors are raised
+        click.echo("becmodel: data validation successful")
     else:
-        data = becmodel.load(config_file=config_file, overwrite=overwrite)
-        becmodel.write(data, qa)
+        BM.run(overwrite=overwrite)
+        BM.write(qa)

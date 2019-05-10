@@ -108,7 +108,7 @@ def test_run(tmpdir):
     """
     BM = BECModel("tests/test.cfg")
     BM.update_config({"wksp": str(tmpdir)})
-    BM.load()
+    BM.run()
     BM.write()
     assert os.path.exists(tmpdir.join("dem.tif"))
     assert os.path.exists(tmpdir.join("aspect.tif"))
