@@ -1,6 +1,4 @@
-from becmodel.main import validate
-from becmodel.main import load
-from becmodel.main import write
+from becmodel.main import BECModel
 
 
 import logging

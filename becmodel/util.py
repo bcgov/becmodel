@@ -1,6 +1,7 @@
+import configparser
 from math import trunc
 import os
-import configparser
+
 import logging
 import logging.handlers
 
@@ -9,7 +10,7 @@ import numpy as np
 import geopandas as gpd
 import fiona
 
-from becmodel.config import config
+from becmodel.config import defaultconfig
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ def load_config(config_file):
     cfg = configparser.ConfigParser()
     cfg.read(config_file)
     cfg_dict = dict(cfg["CONFIG"])
-
+    config = defaultconfig
     for key in cfg_dict:
         if key not in config.keys():
             raise ConfigError("Config key {} is invalid".format(key))
@@ -71,10 +72,11 @@ def load_config(config_file):
     ]:
         config[key] = int(config[key])
 
-    validate_config()
+    validate_config(config)
+    return config
 
 
-def validate_config():
+def validate_config(config):
     # validate that required paths exist
     for key in ["rulepolys_file", "elevation", "becmaster"]:
         if not os.path.exists(config[key]):
@@ -96,7 +98,7 @@ def validate_config():
         )
 
 
-def load_tables():
+def load_tables(config):
     """load data from files specified in config and validate
     """
 
@@ -224,7 +226,7 @@ def validate_data(data):
                 )
 
 
-def configure_logging():
+def configure_logging(config):
     logger = logging.getLogger()
     formatter = logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
     logger.setLevel(logging.INFO)

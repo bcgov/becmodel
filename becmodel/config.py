@@ -1,7 +1,7 @@
 # Default config
-# To overwrite these values, provide becmodel command with a config file
+# To overwrite these values, initialize becmodel with a config file
 
-config = {
+defaultconfig = {
     "rulepolys_file": "tests/data/data.gdb.zip",
     "rulepolys_layer": "rule_polys",
     "elevation": "tests/data/elevation.csv",
