@@ -5,7 +5,6 @@ defaultconfig = {
     "rulepolys_file": "tests/data/data.gdb.zip",
     "rulepolys_layer": "rule_polys",
     "elevation": "tests/data/elevation.csv",
-    "becmaster": "tests/data/becmaster.csv",
     "cell_size": 50,
     "smoothing_tolerance": 50,                      # not used
     "generalize_tolerance": 200,                    # not used

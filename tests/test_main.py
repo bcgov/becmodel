@@ -69,14 +69,6 @@ def test_load_invalid_rulepolys():
         BM.validate()
 
 
-# invalid types in becmaster
-def test_load_invalid_becmaster():
-    with pytest.raises(DataValueError):
-        BM = BECModel("tests/test.cfg")
-        BM.update_config({"becmaster": "tests/data/becmaster_invalid.csv"})
-        BM.validate()
-
-
 # elevation and rulepolys polygon_number values are not exact matches
 def test_load_invalid_elevation():
     with pytest.raises(DataValueError):

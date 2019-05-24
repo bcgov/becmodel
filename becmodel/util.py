@@ -80,7 +80,7 @@ def load_config(config_file):
 
 def validate_config(config):
     # validate that required paths exist
-    for key in ["rulepolys_file", "elevation", "becmaster"]:
+    for key in ["rulepolys_file", "elevation"]:
         if not os.path.exists(config[key]):
             raise ConfigValueError(
                 "config {}: {} does not exist".format(key, config[key])
@@ -137,20 +137,6 @@ def load_tables(config):
                 "polygon_number": np.int16,
             },
         )
-
-        # -- becmaster
-        data["becmaster"] = pd.read_csv(
-            config["becmaster"],
-            dtype={
-                "becvalue": np.int16,
-                "beclabel": np.str,
-                "zone": np.str,
-                "subzone": np.str,
-                "variant": np.str,
-                "phase": np.str,
-            },
-        )
-        data["becmaster"].rename(columns=str.lower, inplace=True)
 
         # -- rule polys
         data["rulepolys"] = gpd.read_file(
