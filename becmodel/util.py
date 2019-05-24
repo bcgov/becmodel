@@ -125,7 +125,6 @@ def load_tables(config):
         data["elevation"].rename(columns=elevation_column_remap, inplace=True)
         data["elevation"].astype(
             {
-                "becvalue": np.int16,
                 "beclabel": np.str,
                 "class_name": np.str,
                 "cool_low": np.int16,
@@ -137,7 +136,6 @@ def load_tables(config):
                 "polygon_number": np.int16,
             },
         )
-
         # -- rule polys
         data["rulepolys"] = gpd.read_file(
             config["rulepolys_file"], layer=config["rulepolys_layer"]

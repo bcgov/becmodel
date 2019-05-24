@@ -58,7 +58,7 @@ def test_invalid_cell_size3():
 def test_load_tables():
     BM = BECModel("tests/test.cfg")
     BM.validate()
-    assert BM.data["elevation"].becvalue[0] == 9
+    assert BM.data["elevation"].beclabel[0] == "MS  xk 1"
 
 
 # invalid types in rule polys
