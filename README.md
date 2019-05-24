@@ -40,7 +40,6 @@ A polygon layer where each polygon represents a unique combination of elevations
 A table (csv format) with the following columns (in any order, case insensitive):
 
 
-    becvalue       : integer
     beclabel       : string
     class_name     : string
     cool_low       : integer
@@ -50,19 +49,6 @@ A table (csv format) with the following columns (in any order, case insensitive)
     warm_low       : integer
     warm_high      : integer
     polygon_number : integer
-
-
-
-### BEC master file
-
-A table (csv format) with the following columns (in any order, case insensitive):
-
-    becvalue : integer
-    beclabel : string
-    zone     : string
-    subzone  : string
-    variant  : string
-    phase    : string
 
 
 ### Config file

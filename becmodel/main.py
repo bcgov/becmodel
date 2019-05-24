@@ -36,8 +36,10 @@ class BECModel(object):
 
     def validate(self):
         self.data = util.load_tables(self.config)
-        # -- arbitrarily assign grid raster values based on list of beclabels
-        self.becvalues = {v: i for i, v in enumerate(list(self.data["elevation"].beclabel.unique()), start=1)}
+        # arbitrarily assign grid raster values based on list of beclabels
+        self.becvalue_lookup = {v: i for i, v in enumerate(list(self.data["elevation"].beclabel.unique()), start=1)}
+        # create a reverse lookup
+        self.beclabel_lookup = {value: key for key, value in self.becvalue_lookup.items()}
 
     def run(self, overwrite=False):
         """ load input data, do model calculations
@@ -127,7 +129,7 @@ class BECModel(object):
                     (data["aspect_class"] == aspect["code"]) &
                     (data["dem"] >= row[aspect["name"]+"_low"]) &
                     (data["dem"] < row[aspect["name"]+"_high"])
-                ] = self.becvalues[row["beclabel"]]
+                ] = self.becvalue_lookup[row["beclabel"]]
 
         # Smooth by applying majority filter to output
         # Note that skimage.filters.rank.majority is currently unreleased
