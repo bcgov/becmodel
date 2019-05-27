@@ -20,11 +20,19 @@ defaultconfig = {
     "majority_filter_low_slope_size": 250,
     "majority_filter_steep_slope_size": 150,
 
+
+    # ----------------------------------------------------------------------
+    # ---- config items that are not configurable through a config file,
+    # ---- changes to these values require updates to this file.
+    # ----------------------------------------------------------------------
+
+    # define areas to be aggregated/removed via 'parkland_removal_threshold'
+    "parkland_removal_threshold_zones": ["BAFA", "CMA", "IMA"],
+    "parkland_removal_threshold_descriptors": ["p", "s", "w"],
+
     # define aspects as list of dicts
     # each aspect has a 'code' and a list of valid ranges as degrees azimuth
     # (0-361, an extra degree to ensure full coverage)
-    # ** NOTE **
-    # ** aspects are *not* configurable through the config file interface **
     "aspects": [
         {
             "name": "cool",

@@ -40,6 +40,8 @@ class BECModel(object):
         self.becvalue_lookup = {v: i for i, v in enumerate(list(self.data["elevation"].beclabel.unique()), start=1)}
         # create a reverse lookup
         self.beclabel_lookup = {value: key for key, value in self.becvalue_lookup.items()}
+        # add zeros to reverse lookup
+        self.beclabel_lookup[0] = None
 
     def run(self, overwrite=False):
         """ load input data, do model calculations
