@@ -12,7 +12,6 @@ def cli(config_file, overwrite, qa, validate):
     BM = BECModel(config_file)
     if validate:
         BM.validate()
-        # presume that this only happens if no errors are raised
         click.echo("becmodel: data validation successful")
     else:
         BM.run(overwrite=overwrite)

@@ -66,9 +66,7 @@ def load_config(config_file):
         # convert int config values to int
         for key in [
             "cell_size",
-            "smoothing_tolerance",
-            "generalize_tolerance",
-            "parkland_removal_threshold",
+            "high_elevation_removal_threshold",
             "noise_removal_threshold",
             "expand_bounds",
         ]:
@@ -210,6 +208,10 @@ def validate_data(data):
                         temp, poly
                     )
                 )
+    # TODO
+    # validate single alpine/parkland/woodland code per rule polygon
+    # validate parkland and woodland columns are equivalent except for 7th char
+    # validate that there is a distinct beclabel corresponding to the beclabel for parkland/woodland code minus 7th char, plus whatever variant
 
 
 def configure_logging(config):

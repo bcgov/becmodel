@@ -6,9 +6,7 @@ defaultconfig = {
     "rulepolys_layer": "rule_polys",
     "elevation": "tests/data/elevation.csv",
     "cell_size": 50,
-    "smoothing_tolerance": 50,                      # not used
-    "generalize_tolerance": 200,                    # not used
-    "parkland_removal_threshold": 2500000,
+    "high_elevation_removal_threshold": 2500000,
     "noise_removal_threshold": 250000,
     "expand_bounds": 1000,
     "wksp": "becmodel_tempdata",
@@ -22,13 +20,18 @@ defaultconfig = {
 
 
     # ----------------------------------------------------------------------
-    # ---- config items that are not configurable through a config file,
-    # ---- changes to these values require updates to this file.
+    # ---- Below areconfig items that are not configurable via config file.
+    # ---- Changes to these values require changes to this file.
     # ----------------------------------------------------------------------
 
     # define areas to be aggregated/removed via 'parkland_removal_threshold'
-    "parkland_removal_threshold_zones": ["BAFA", "CMA", "IMA"],
-    "parkland_removal_threshold_descriptors": ["p", "s", "w"],
+    # Note that alpine comes from first four characters of beclabel
+    # .str[:4]
+    # parkland and woodland come from the seventh character of beclabel
+    # .str[6:7]
+    "high_elevation_removal_threshold_alpine": ["AT", "BAFA", "CMA", "IMA"],
+    "high_elevation_removal_threshold_parkland": ["p", "s"],
+    "high_elevation_removal_threshold_woodland": ["w"],
 
     # define aspects as list of dicts
     # each aspect has a 'code' and a list of valid ranges as degrees azimuth
