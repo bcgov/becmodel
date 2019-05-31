@@ -30,10 +30,9 @@ A polygon layer where each polygon represents a unique combination of elevations
 
 - be a format readable by [`fiona`](https://github.com/Toblerity/Fiona) (`FileGDB`, `GPKG`, `SHP`, etc)
 - use the BC Albers (`EPSG:3005`) coordinate reference system / projection
-- include these attributes of noted types:
+- include this attribute:
 
         polygon_number      : integer
-        polygon_description : string / character
 
 ### Elevation file
 
@@ -41,7 +40,6 @@ A table (csv format) with the following columns (in any order, case insensitive)
 
 
     beclabel       : string
-    class_name     : string
     cool_low       : integer
     cool_high      : integer
     neutral_low    : integer
@@ -72,8 +70,11 @@ Modify your config file as required and provide path of the config file as an ar
           --help           Show this message and exit.
 
       $ becmodel sample_config.cfg
-      2019-04-19 22:11:54,115 becmodel.cli INFO     Initializing BEC model v0.0.3dev
-      2019-04-19 22:11:54,115 becmodel.cli INFO     Loading config from file: sample_config.cfg
-      2019-04-19 22:11:54,975 becmodel.main INFO     becmodel_tempdata/becvalue.gpkg created
+        becmodel.main INFO     Downloading and processing DEM
+        becmodel.main INFO     Generating initial becvalue raster
+        becmodel.main INFO     Running majority filter
+        becmodel.main INFO     Running noise removal filter
+        becmodel.main INFO     Running high elevation minimum size filter
+        becmodel.main INFO     Output becmodel_tempdata/becmodel.gpkg created
 
 Temp data are written to the default workspace `becmodel_tempdata` or to the folder specified by the `wskp` key in the config file.
