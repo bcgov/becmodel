@@ -92,9 +92,15 @@ def validate_config(config):
             )
         )
     # for alignment to work, cell size must be <= 100m
-    if config["cell_size"] < 25 or config["cell_size"] > 100 or config["cell_size"] % 5 != 0 :
+    if (
+        config["cell_size"] < 25
+        or config["cell_size"] > 100
+        or config["cell_size"] % 5 != 0
+    ):
         raise ConfigValueError(
-            "cell size {} invalid - must be a multiple of 5 from 25-100".format(str(config["cell_size"]))
+            "cell size {} invalid - must be a multiple of 5 from 25-100".format(
+                str(config["cell_size"])
+            )
         )
 
 
@@ -108,11 +114,11 @@ def load_tables(config):
         "classnm": "class_name",
         "neut_low": "neutral_low",
         "neut_high": "neutral_high",
-        "polygonnbr": "polygon_number"
+        "polygonnbr": "polygon_number",
     }
     rules_column_remap = {
         "polygonnbr": "polygon_number",
-        "polygondes": "polygon_description"
+        "polygondes": "polygon_description",
     }
 
     data = {}
@@ -132,7 +138,7 @@ def load_tables(config):
                 "warm_low": np.int16,
                 "warm_high": np.int16,
                 "polygon_number": np.int16,
-            },
+            }
         )
         # -- rule polys
         data["rulepolys"] = gpd.read_file(
@@ -142,10 +148,10 @@ def load_tables(config):
         data["rulepolys"].rename(columns=rules_column_remap, inplace=True)
         # casting these two columns removes the geoseries designation, just
         # presume that the provided poygon_number data is integer
-        #data["rulepolys"] = data["rulepolys"].astype(
+        # data["rulepolys"] = data["rulepolys"].astype(
         #    {"polygon_number": np.int16, "polygon_description": np.str},
         #    errors="raise"
-        #)
+        # )
     except:
         raise DataValueError(
             "Column names or value(s) in input files incorrect. "
@@ -208,10 +214,6 @@ def validate_data(data):
                         temp, poly
                     )
                 )
-    # TODO
-    # validate single alpine/parkland/woodland code per rule polygon
-    # validate parkland and woodland columns are equivalent except for 7th char
-    # validate that there is a distinct beclabel corresponding to the beclabel for parkland/woodland code minus 7th char, plus whatever variant
 
 
 def configure_logging(config):

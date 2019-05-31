@@ -17,13 +17,10 @@ defaultconfig = {
     "majority_filter_steep_slope_threshold": 25,
     "majority_filter_low_slope_size": 250,
     "majority_filter_steep_slope_size": 150,
-
-
     # ----------------------------------------------------------------------
-    # ---- Below areconfig items that are not configurable via config file.
+    # ---- Below are config items that are not configurable via config file.
     # ---- Changes to these values require changes to this file.
     # ----------------------------------------------------------------------
-
     # define areas to be aggregated/removed via 'parkland_removal_threshold'
     # Note that alpine comes from first four characters of beclabel
     # .str[:4]
@@ -32,7 +29,6 @@ defaultconfig = {
     "high_elevation_removal_threshold_alpine": ["AT", "BAFA", "CMA", "IMA"],
     "high_elevation_removal_threshold_parkland": ["p", "s"],
     "high_elevation_removal_threshold_woodland": ["w"],
-
     # define aspects as list of dicts
     # each aspect has a 'code' and a list of valid ranges as degrees azimuth
     # (0-361, an extra degree to ensure full coverage)
@@ -40,26 +36,17 @@ defaultconfig = {
         {
             "name": "cool",
             "code": 100,
-            "ranges": [
-                {"min": 0, "max": 45},
-                {"min": 315, "max": 361}
-            ],
+            "ranges": [{"min": 0, "max": 45}, {"min": 315, "max": 361}],
         },
         {
             "name": "neutral",
             "code": 200,
             "ranges": [
-                {"min": -1, "max": 0},    # -1 values are flat areas
+                {"min": -1, "max": 0},  # -1 values are flat areas
                 {"min": 45, "max": 135},
-                {"min": 270, "max": 315}
+                {"min": 270, "max": 315},
             ],
         },
-        {
-            "name": "warm",
-            "code": 300,
-            "ranges": [
-                {"min": 135, "max": 270}
-            ]
-        },
+        {"name": "warm", "code": 300, "ranges": [{"min": 135, "max": 270}]},
     ],
 }

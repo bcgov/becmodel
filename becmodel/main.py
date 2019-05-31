@@ -2,23 +2,17 @@ import os
 import logging
 import shutil
 from math import ceil
-
-import fiona
 import rasterio
 from rasterio import features
 from rasterio.features import shapes
 from osgeo import gdal
 import numpy as np
 import geopandas as gpd
-import pandas as pd
 from geojson import Feature, FeatureCollection
 from skimage.filters.rank import majority
-from skimage.measure import label
 import skimage.morphology as morphology
-
-# from skimage.morphology import rectangle, remove_small_objects
-
 import bcdata
+
 import becmodel
 from becmodel import util
 
@@ -268,11 +262,7 @@ class BECModel(object):
         for becvalue in [v for v in self.beclabel_lookup if v != 0]:
 
             # extract given becvalue
-            X = np.where(
-                data["becvalue_2_majorityfilter"] == becvalue,
-                1,
-                0
-            )
+            X = np.where(data["becvalue_2_majorityfilter"] == becvalue, 1, 0)
 
             # fill holes, remove small objects
             Y = morphology.remove_small_holes(X, noise_threshold)
@@ -280,9 +270,7 @@ class BECModel(object):
 
             # insert values into output
             data["becvalue_3_noisefilter"] = np.where(
-                Z != 0,
-                becvalue,
-                data["becvalue_3_noisefilter"]
+                Z != 0, becvalue, data["becvalue_3_noisefilter"]
             )
 
         # ----------------------------------------------------------------
