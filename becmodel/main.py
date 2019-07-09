@@ -285,6 +285,47 @@ class BECModel(object):
                 Z != 0, becvalue, data["becvalue_3_noisefilter"]
             )
 
+        # remove noise on edges of rule polygons that gets introduced with
+        # above process (removing small holes and then removing small
+        # objects leaves holes of 0 along rule poly edges)
+        # initialize the output raster for noise filter
+        data["becvalue_4_areaclosing"] = data["becvalue_3_noisefilter"]
+        for rule_poly in data["rulepolys"].polygon_number.tolist():
+            # extract image area within the rule poly
+            X = np.where(
+                data["rules_image"] == rule_poly,
+                data["becvalue_3_noisefilter"],
+                100
+            )
+            Y = morphology.area_closing(X, noise_threshold, connectivity=1)
+            #data["aclose"] = Y
+            data["becvalue_4_areaclosing"] = np.where(
+                (data["rules_image"] == rule_poly) &
+                (data["becvalue_3_noisefilter"] == 0),
+                Y,
+                data["becvalue_4_areaclosing"]
+            )
+
+            # dilate the extracted area
+            #selem = morphology.disk(3)
+            #dilated = morphology.dilation(X, selem)
+
+
+        # try getting rid of noise on rule poly edges via area_closing
+        # this works but does not respect the rule polys
+        """
+        Y = morphology.area_closing(
+            data["becvalue_3_noisefilter"],
+            noise_threshold,
+            connectivity=1
+        )
+        # update output raster with dilation where it fills the 0 gaps
+        data["becvalue_4_areaclosing"] = np.where(
+            (data["becvalue_3_noisefilter"] == 0),
+            Y,
+            data["becvalue_3_noisefilter"]
+        )
+        """
         # ----------------------------------------------------------------
         # High elevation noise removal and polygonization
         # ----------------------------------------------------------------
@@ -314,8 +355,8 @@ class BECModel(object):
         for rule_poly in rulepoly_merge_lookup:
             log.info(rule_poly)
             # get the outline of the rule poly and buffer it
-            data["rule_bnd_buf"][rule_poly] = self.data["rulepolys"][
-                self.data["rulepolys"].polygon_number == rule_poly
+            data["rule_bnd_buf"][rule_poly] = data["rulepolys"][
+                data["rulepolys"].polygon_number == rule_poly
             ]
             data["rule_bnd_buf"][rule_poly]["geometry"] = data["rule_bnd_buf"][rule_poly].buffer(2000)
             # keep only columns of interest
@@ -336,7 +377,7 @@ class BECModel(object):
 
             # generate output image for rule poly area
             out_image = np.where(
-                rule_bnd_image == rule_poly, data["becvalue_3_noisefilter"], 0
+                rule_bnd_image == rule_poly, data["becvalue_4_areaclosing"], 0
             )
 
             merge_lookup = rulepoly_merge_lookup[rule_poly]
@@ -381,8 +422,8 @@ class BECModel(object):
             # clip to original rule poly bnd
             data["becvalue_polys_clipped"][rule_poly] = gpd.overlay(
                 data["becvalue_polys"][rule_poly],
-                self.data["rulepolys"][
-                    self.data["rulepolys"].polygon_number == rule_poly
+                data["rulepolys"][
+                    data["rulepolys"].polygon_number == rule_poly
                 ],
                 how="intersection",
             )
@@ -414,7 +455,8 @@ class BECModel(object):
                     "becvalue_1_initial",
                     "becvalue_2_majorityfilter",
                     "becvalue_3_noisefilter",
-                    "becvalue_4_highelevationfilter",
+                    "becvalue_4_areaclosing",
+                    "aclose"
                     "rules_image",
                     "aspect_class",
                 ]:
