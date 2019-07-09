@@ -232,3 +232,25 @@ def configure_logging(config):
     filehandler.setFormatter(formatter)
     filehandler.setLevel(logging.INFO)
     logger.addHandler(filehandler)
+
+
+def multi2single(gdf):
+    """
+    multi to single is not a geopandas builtin
+    https://github.com/geopandas/geopandas/issues/369
+    """
+    gdf_singlepoly = gdf[gdf.geometry.type == "Polygon"]
+    gdf_multipoly = gdf[gdf.geometry.type == "MultiPolygon"]
+
+    for i, row in gdf_multipoly.iterrows():
+        Series_geometries = pd.Series(row.geometry)
+        df = pd.concat(
+            [gpd.GeoDataFrame(row, crs=gdf_multipoly.crs).T]
+            * len(Series_geometries),
+            ignore_index=True,
+        )
+        df["geometry"] = Series_geometries
+        gdf_singlepoly = pd.concat([gdf_singlepoly, df])
+
+    gdf_singlepoly.reset_index(inplace=True, drop=True)
+    return gdf_singlepoly

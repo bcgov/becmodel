@@ -7,6 +7,7 @@ from rasterio import features
 from rasterio.features import shapes
 from osgeo import gdal
 import numpy as np
+import pandas as pd
 import geopandas as gpd
 from geojson import Feature, FeatureCollection
 from skimage.filters.rank import majority
@@ -132,8 +133,18 @@ class BECModel(object):
         data = self.data
 
         log.info("Downloading and processing DEM")
-        # get bounds from gdf and align to Hectares BC raster
-        data["bounds"] = util.align(list(data["rulepolys"].geometry.total_bounds))
+
+        # get bounds from gdf and bump out 2km
+        bounds = list(data["rulepolys"].geometry.total_bounds)
+        expansion = 2000
+        xmin = bounds[0] - expansion
+        ymin = bounds[1] - expansion
+        xmax = bounds[2] + expansion
+        ymax = bounds[3] + expansion
+        expanded_bounds = (xmin, ymin, xmax, ymax)
+
+        # align to Hectares BC raster
+        data["bounds"] = util.align(expanded_bounds)
 
         # confirm workspace exists, overwrite if specified
         if overwrite and os.path.exists(config["wksp"]):
@@ -246,7 +257,7 @@ class BECModel(object):
 
         # ----------------------------------------------------------------
         # noise removal
-        # Remove noise by removing holes within each zone less than the size threshold
+        # Remove noise by removing holes within each zone < the size threshold
         # ----------------------------------------------------------------
         log.info("Running noise removal filter")
 
@@ -258,7 +269,8 @@ class BECModel(object):
         # initialize the output raster for noise filter
         data["becvalue_3_noisefilter"] = np.zeros(shape=shape, dtype="uint16")
 
-        # loop through all becvalues (first removing the extra zero in the lookup)
+        # loop through all becvalues
+        # (first removing the extra zero in the lookup)
         for becvalue in [v for v in self.beclabel_lookup if v != 0]:
 
             # extract given becvalue
@@ -274,15 +286,13 @@ class BECModel(object):
             )
 
         # ----------------------------------------------------------------
-        # High elevation noise removal
+        # High elevation noise removal and polygonization
         # ----------------------------------------------------------------
         # convert high_elevation_removal_threshold value from m2 to n cells
         high_elevation_removal_threshold = int(
             self.config["high_elevation_removal_threshold"]
             / (self.config["cell_size"] ** 2)
         )
-
-        data["becvalue_4_highelevationfilter"] = data["becvalue_3_noisefilter"].copy()
 
         # before processing the high elevation filter, build lookup
         # for transitioning zones in each rule poly
@@ -294,13 +304,46 @@ class BECModel(object):
         if rulepoly_merge_lookup:
             log.info("Running high elevation minimum size filter")
 
+        # create empty data structures to hold output polygons for
+        # each rule polygon
+        data["rule_bnd_buf"] = {}
+        data["becvalue_polys"] = {}
+        data["becvalue_polys_clipped"] = {}
+
         # iterate through rule polygons
         for rule_poly in rulepoly_merge_lookup:
+            log.info(rule_poly)
+            # get the outline of the rule poly and buffer it
+            data["rule_bnd_buf"][rule_poly] = self.data["rulepolys"][
+                self.data["rulepolys"].polygon_number == rule_poly
+            ]
+            data["rule_bnd_buf"][rule_poly]["geometry"] = data["rule_bnd_buf"][rule_poly].buffer(2000)
+            # keep only columns of interest
+            data["rule_bnd_buf"][rule_poly] = data["rule_bnd_buf"][rule_poly][["polygon_number", "geometry"]]
+            # rasterize the buffered area
+            rule_bnd_image = features.rasterize(
+                (
+                    (geom, value)
+                    for geom, value in zip(
+                        data["rule_bnd_buf"][rule_poly].geometry, data["rule_bnd_buf"][rule_poly].polygon_number
+                    )
+                ),
+                out_shape=shape,
+                transform=transform,
+                all_touched=False,
+                dtype=np.uint16,
+            )
+
+            # generate output image for rule poly area
+            out_image = np.where(
+                rule_bnd_image == rule_poly, data["becvalue_3_noisefilter"], 0
+            )
+
             merge_lookup = rulepoly_merge_lookup[rule_poly]
             # iterate through the merges in order of insertion (Python >=3.6)
             for merge_label in merge_lookup:
 
-                log.debug(
+                log.info(
                     "high_elevation_removal: rule_poly: {}, merge_label:{}".format(
                         rule_poly, merge_label
                     )
@@ -310,11 +353,7 @@ class BECModel(object):
                 # if finding small alpine areas, extract parkland and
                 # remove small holes from the parkland
                 X = np.where(
-                    (data["rules_image"] == rule_poly)
-                    & (
-                        data["becvalue_4_highelevationfilter"]
-                        == self.becvalue_lookup[merge_lookup[merge_label]]
-                    ),
+                    out_image == self.becvalue_lookup[merge_lookup[merge_label]],
                     1,
                     0,
                 )
@@ -322,30 +361,45 @@ class BECModel(object):
                 # remove small holes from parkland/woodland/high
                 Y = morphology.remove_small_holes(X, high_elevation_removal_threshold)
 
-                # apply the removed holes to master image where value
+                # apply the removed holes to output image where value
                 # corresponds to value to be removed (ie, alpine for parkland)
-                data["becvalue_4_highelevationfilter"] = np.where(
-                    (Y == 1)
-                    & (
-                        data["becvalue_4_highelevationfilter"]
-                        == self.becvalue_lookup[merge_label]
-                    ),
+                out_image = np.where(
+                    (Y == 1) & (out_image == self.becvalue_lookup[merge_label]),
                     self.becvalue_lookup[merge_lookup[merge_label]],
-                    data["becvalue_4_highelevationfilter"],
+                    out_image,
                 )
 
-        # ----------------------------------------------------------------
-        # convert to polygon feature collection and load to a data frame
-        # ----------------------------------------------------------------
-        fc = FeatureCollection(
-            [
-                Feature(geometry=s, properties={"beclabel": self.beclabel_lookup[v]})
-                for i, (s, v) in enumerate(
-                    shapes(data["becvalue_4_highelevationfilter"], transform=transform)
-                )
-            ]
+            # convert to polygon feature collection and load to a data frame
+            fc = FeatureCollection(
+                [
+                    Feature(geometry=s, properties={"becvalue": v})
+                    for i, (s, v) in enumerate(shapes(out_image, transform=transform))
+                ]
+            )
+            data["becvalue_polys"][rule_poly] = gpd.GeoDataFrame.from_features(fc)
+
+            # clip to original rule poly bnd
+            data["becvalue_polys_clipped"][rule_poly] = gpd.overlay(
+                data["becvalue_polys"][rule_poly],
+                self.data["rulepolys"][
+                    self.data["rulepolys"].polygon_number == rule_poly
+                ],
+                how="intersection",
+            )
+
+        # concatenate, dissolve and singlepart output becvalue polygons
+        data["becvalue_1"] = util.multi2single(
+            pd.concat(data["becvalue_polys_clipped"].values())
+            .pipe(gpd.GeoDataFrame)
+            .dissolve(by="becvalue")
+            .reset_index()[["becvalue", "geometry"]]
         )
-        data["beclabel_polys"] = gpd.GeoDataFrame.from_features(fc)
+
+        # are any smaller than the noise threshold?
+
+        # add beclabel column
+        data["becvalue_1"]['beclabel'] = data["becvalue_1"]["becvalue"].map(self.beclabel_lookup)
+
         self.data = data
 
     def write(self, qa=False):
@@ -378,7 +432,7 @@ class BECModel(object):
                         dst.write(self.data[raster].astype(np.uint16), indexes=1)
 
             # write output vectors to file
-            self.data["beclabel_polys"].to_file(
+            self.data["becvalue_1"].to_file(
                 os.path.join(config["wksp"], config["out_file"]),
                 layer=config["out_layer"],
                 driver="GPKG",
