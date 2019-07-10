@@ -200,173 +200,31 @@ class BECModel(object):
                     ] = aspect["code"]
 
         # ----------------------------------------------------------------
-        # rule polygons to raster
+        # Iterate through rule polys, doing all processing within rule
+        # polys independently
         # ----------------------------------------------------------------
-        data["rules_image"] = features.rasterize(
-            (
-                (geom, value)
-                for geom, value in zip(
-                    data["rulepolys"].geometry, data["rulepolys"].polygon_number
-                )
-            ),
-            out_shape=shape,
-            transform=transform,
-            all_touched=False,
-            dtype=np.uint16,
-        )
 
-        # ----------------------------------------------------------------
-        # Generate initial becvalue raster
-        # Generate becvalue raster by iterating through elevation table,
-        # setting output raster to becvalue for each row where criteria are met
-        # by the dem/aspect/rulepolys
-        # ----------------------------------------------------------------
-        log.info("Generating initial becvalue raster")
-        data["becvalue_1_initial"] = np.zeros(shape=shape, dtype="uint16")
-        for index, row in data["elevation"].iterrows():
-            for aspect in config["aspects"]:
-                data["becvalue_1_initial"][
-                    (data["rules_image"] == row["polygon_number"])
-                    & (data["aspect_class"] == aspect["code"])
-                    & (data["dem"] >= row[aspect["name"] + "_low"])
-                    & (data["dem"] < row[aspect["name"] + "_high"])
-                ] = self.becvalue_lookup[row["beclabel"]]
+        for rule_val in data["rulepolys"].polygon_number.tolist():
+            log.info("Processing rule polygon {}".format(rule_val))
+            data[rule_val] = {}
+            # get raw rule polygon boundary
+            data[rule_val]["01_rulepoly"] = data["rulepolys"][
+                data["rulepolys"].polygon_number == rule_val
+            ][["polygon_number", "geometry"]]
 
-        log.info("Running majority filter")
-        low_slope_size = ceil(
-            (config["majority_filter_low_slope_size"] / config["cell_size"])
-        )
-        steep_slope_size = ceil(
-            (config["majority_filter_steep_slope_size"] / config["cell_size"])
-        )
+            # copy and buffer by 2km
+            data[rule_val]["02_rulepolybuf"] = data[rule_val]["01_rulepoly"].copy()
+            data[rule_val]["02_rulepolybuf"]["geometry"] = data[rule_val][
+                "02_rulepolybuf"
+            ].buffer(2000)
 
-        # ----------------------------------------------------------------
-        # majority filter
-        # ----------------------------------------------------------------
-        data["becvalue_2_majorityfilter"] = np.where(
-            data["slope"] < config["majority_filter_steep_slope_threshold"],
-            majority(
-                data["becvalue_1_initial"],
-                morphology.rectangle(width=low_slope_size, height=low_slope_size),
-            ),
-            majority(
-                data["becvalue_1_initial"],
-                morphology.rectangle(width=steep_slope_size, height=steep_slope_size),
-            ),
-        )
-
-        # ----------------------------------------------------------------
-        # noise removal
-        # Remove noise by removing holes within each zone < the size threshold
-        # ----------------------------------------------------------------
-        log.info("Running noise removal filter")
-
-        # convert noise_removal_threshold value from m2 to n cells
-        noise_threshold = int(
-            config["noise_removal_threshold"] / (config["cell_size"] ** 2)
-        )
-
-        # initialize the output raster for noise filter
-        data["becvalue_3_noisefilter"] = np.zeros(shape=shape, dtype="uint16")
-
-        # loop through all becvalues
-        # (first removing the extra zero in the lookup)
-        for becvalue in [v for v in self.beclabel_lookup if v != 0]:
-
-            # extract given becvalue
-            X = np.where(data["becvalue_2_majorityfilter"] == becvalue, 1, 0)
-
-            # fill holes, remove small objects
-            Y = morphology.remove_small_holes(X, noise_threshold)
-            Z = morphology.remove_small_objects(Y, noise_threshold)
-
-            # insert values into output
-            data["becvalue_3_noisefilter"] = np.where(
-                Z != 0, becvalue, data["becvalue_3_noisefilter"]
-            )
-
-        # remove noise on edges of rule polygons that gets introduced with
-        # above process (removing small holes and then removing small
-        # objects leaves holes of 0 along rule poly edges)
-        # initialize the output raster for noise filter
-        data["becvalue_4_areaclosing"] = data["becvalue_3_noisefilter"]
-        for rule_poly in data["rulepolys"].polygon_number.tolist():
-            # extract image area within the rule poly
-            X = np.where(
-                data["rules_image"] == rule_poly,
-                data["becvalue_3_noisefilter"],
-                100
-            )
-            Y = morphology.area_closing(X, noise_threshold, connectivity=1)
-            #data["aclose"] = Y
-            data["becvalue_4_areaclosing"] = np.where(
-                (data["rules_image"] == rule_poly) &
-                (data["becvalue_3_noisefilter"] == 0),
-                Y,
-                data["becvalue_4_areaclosing"]
-            )
-
-            # dilate the extracted area
-            #selem = morphology.disk(3)
-            #dilated = morphology.dilation(X, selem)
-
-
-        # try getting rid of noise on rule poly edges via area_closing
-        # this works but does not respect the rule polys
-        """
-        Y = morphology.area_closing(
-            data["becvalue_3_noisefilter"],
-            noise_threshold,
-            connectivity=1
-        )
-        # update output raster with dilation where it fills the 0 gaps
-        data["becvalue_4_areaclosing"] = np.where(
-            (data["becvalue_3_noisefilter"] == 0),
-            Y,
-            data["becvalue_3_noisefilter"]
-        )
-        """
-        # ----------------------------------------------------------------
-        # High elevation noise removal and polygonization
-        # ----------------------------------------------------------------
-        # convert high_elevation_removal_threshold value from m2 to n cells
-        high_elevation_removal_threshold = int(
-            self.config["high_elevation_removal_threshold"]
-            / (self.config["cell_size"] ** 2)
-        )
-
-        # before processing the high elevation filter, build lookup
-        # for transitioning zones in each rule poly
-        rulepoly_merge_lookup = {}
-        for rule_poly in data["rulepolys"].polygon_number.tolist():
-            mergerules = self.get_merge_codes(rule_poly)
-            if mergerules:
-                rulepoly_merge_lookup[rule_poly] = mergerules
-        if rulepoly_merge_lookup:
-            log.info("Running high elevation minimum size filter")
-
-        # create empty data structures to hold output polygons for
-        # each rule polygon
-        data["rule_bnd_buf"] = {}
-        data["becvalue_polys"] = {}
-        data["becvalue_polys_clipped"] = {}
-
-        # iterate through rule polygons
-        for rule_poly in rulepoly_merge_lookup:
-            log.info(rule_poly)
-            # get the outline of the rule poly and buffer it
-            data["rule_bnd_buf"][rule_poly] = data["rulepolys"][
-                data["rulepolys"].polygon_number == rule_poly
-            ]
-            data["rule_bnd_buf"][rule_poly]["geometry"] = data["rule_bnd_buf"][rule_poly].buffer(2000)
-            # keep only columns of interest
-            data["rule_bnd_buf"][rule_poly] = data["rule_bnd_buf"][rule_poly][["polygon_number", "geometry"]]
-            # rasterize the buffered area
-            rule_bnd_image = features.rasterize(
+            # rasterize the buffered rulepoly
+            data[rule_val]["03_ruleimg"] = features.rasterize(
                 (
                     (geom, value)
                     for geom, value in zip(
-                        data["rule_bnd_buf"][rule_poly].geometry, data["rule_bnd_buf"][rule_poly].polygon_number
+                        data[rule_val]["02_rulepolybuf"].geometry,
+                        data[rule_val]["02_rulepolybuf"].polygon_number,
                     )
                 ),
                 out_shape=shape,
@@ -375,71 +233,190 @@ class BECModel(object):
                 dtype=np.uint16,
             )
 
-            # generate output image for rule poly area
-            out_image = np.where(
-                rule_bnd_image == rule_poly, data["becvalue_4_areaclosing"], 0
+            # ----------------------------------------------------------------
+            # Generate initial becvalue raster
+            # Generate becvalue raster by iterating through elevation table,
+            # setting output raster to becvalue for each row where criteria are met
+            # by the dem/aspect/rulepolys
+            # ----------------------------------------------------------------
+            log.info("Generating initial becvalue raster")
+            data[rule_val]["04_becinit"] = np.zeros(shape=shape, dtype="uint16")
+            for index, row in data["elevation"][
+                data["elevation"].polygon_number == rule_val
+            ].iterrows():
+                for aspect in config["aspects"]:
+                    data[rule_val]["04_becinit"][
+                        (data[rule_val]["03_ruleimg"] == rule_val)
+                        & (data["aspect_class"] == aspect["code"])
+                        & (data["dem"] >= row[aspect["name"] + "_low"])
+                        & (data["dem"] < row[aspect["name"] + "_high"])
+                    ] = self.becvalue_lookup[row["beclabel"]]
+
+            # ----------------------------------------------------------------
+            # majority filter
+            # ----------------------------------------------------------------
+            log.info("Running majority filter")
+            low_slope_size = ceil(
+                (config["majority_filter_low_slope_size"] / config["cell_size"])
+            )
+            steep_slope_size = ceil(
+                (config["majority_filter_steep_slope_size"] / config["cell_size"])
+            )
+            data[rule_val]["05_majority"] = np.where(
+                data["slope"] < config["majority_filter_steep_slope_threshold"],
+                majority(
+                    data[rule_val]["04_becinit"],
+                    morphology.rectangle(width=low_slope_size, height=low_slope_size),
+                ),
+                majority(
+                    data[rule_val]["04_becinit"],
+                    morphology.rectangle(
+                        width=steep_slope_size, height=steep_slope_size
+                    ),
+                ),
             )
 
-            merge_lookup = rulepoly_merge_lookup[rule_poly]
-            # iterate through the merges in order of insertion (Python >=3.6)
-            for merge_label in merge_lookup:
+            # ----------------------------------------------------------------
+            # noise removal
+            # removing holes within each zone < the size threshold
+            # ----------------------------------------------------------------
+            log.info("Running noise removal filter")
 
-                log.info(
-                    "high_elevation_removal: rule_poly: {}, merge_label:{}".format(
-                        rule_poly, merge_label
-                    )
+            # convert noise_removal_threshold value from m2 to n cells
+            noise_threshold = int(
+                config["noise_removal_threshold"] / (config["cell_size"] ** 2)
+            )
+            # initialize the output raster for noise filter
+            data[rule_val]["06_noise"] = np.zeros(shape=shape, dtype="uint16")
+
+            # loop through all becvalues
+            # (first removing the extra zero in the lookup)
+            for becvalue in [v for v in self.beclabel_lookup if v != 0]:
+
+                # extract given becvalue
+                X = np.where(data[rule_val]["05_majority"] == becvalue, 1, 0)
+
+                # fill holes, remove small objects
+                Y = morphology.remove_small_holes(X, noise_threshold)
+                Z = morphology.remove_small_objects(Y, noise_threshold)
+
+                # insert values into output
+                data[rule_val]["06_noise"] = np.where(
+                    Z != 0, becvalue, data[rule_val]["06_noise"]
                 )
 
-                # Extract area of interest:
-                # if finding small alpine areas, extract parkland and
-                # remove small holes from the parkland
-                X = np.where(
-                    out_image == self.becvalue_lookup[merge_lookup[merge_label]],
-                    1,
+            # above removes noise only where it is not on the edge.
+            # Just in case small areas of noise remain on the edges, apply
+            # area_closing function to remove
+            data[rule_val]["07_areaclosing"] = data[rule_val]["06_noise"]
+
+            # extract image area within the rule poly, set everything out to
+            # a dummy value that should be outside the range of becvalues
+            X = np.where(
+                data[rule_val]["03_ruleimg"] == rule_val,
+                data[rule_val]["06_noise"],
+                225,
+            )
+            Y = morphology.area_closing(X, noise_threshold, connectivity=1)
+            data[rule_val]["07_areaclosing"] = np.where(
+                (data[rule_val]["03_ruleimg"] == rule_val)
+                & (data[rule_val]["06_noise"] == 0),
+                Y,
+                data[rule_val]["07_areaclosing"],
+            )
+
+            # ----------------------------------------------------------------
+            # High elevation noise removal
+            # ----------------------------------------------------------------
+            # convert high_elevation_removal_threshold value from m2 to n cells
+            high_elevation_removal_threshold = int(
+                self.config["high_elevation_removal_threshold"]
+                / (self.config["cell_size"] ** 2)
+            )
+
+            # before processing the high elevation filter, build lookup
+            # for transitioning zones in the rule poly
+            merge_lookup = self.get_merge_codes(rule_val)
+            if merge_lookup:
+                log.info("Running high elevation minimum size filter")
+
+                # initialize output
+                data[rule_val]["08_highelev"] = np.where(
+                    data[rule_val]["03_ruleimg"] == rule_val,
+                    data[rule_val]["07_areaclosing"],
                     0,
                 )
 
-                # remove small holes from parkland/woodland/high
-                Y = morphology.remove_small_holes(X, high_elevation_removal_threshold)
+                # iterate through the merges (in order of insertion)
+                for merge_label in merge_lookup:
+                    log.info(
+                        "high_elevation_removal: rule_poly: {}, merge_label:{}".format(
+                            rule_val, merge_label
+                        )
+                    )
 
-                # apply the removed holes to output image where value
-                # corresponds to value to be removed (ie, alpine for parkland)
-                out_image = np.where(
-                    (Y == 1) & (out_image == self.becvalue_lookup[merge_label]),
-                    self.becvalue_lookup[merge_lookup[merge_label]],
-                    out_image,
-                )
+                    # Extract area of interest:
+                    # if finding small alpine areas, extract parkland and
+                    # remove small holes from the parkland
+                    X = np.where(
+                        data[rule_val]["08_highelev"]
+                        == self.becvalue_lookup[merge_lookup[merge_label]],
+                        1,
+                        0,
+                    )
 
-            # convert to polygon feature collection and load to a data frame
+                    # remove small holes from parkland/woodland/high
+                    Y = morphology.remove_small_holes(
+                        X, high_elevation_removal_threshold
+                    )
+
+                    # apply the removed holes to output image where value
+                    # corresponds to value to be removed (ie, alpine for parkland)
+                    data[rule_val]["08_highelev"] = np.where(
+                        (Y == 1)
+                        & (
+                            data[rule_val]["08_highelev"]
+                            == self.becvalue_lookup[merge_label]
+                        ),
+                        self.becvalue_lookup[merge_lookup[merge_label]],
+                        data[rule_val]["08_highelev"],
+                    )
+
+            # convert to polygon
             fc = FeatureCollection(
                 [
                     Feature(geometry=s, properties={"becvalue": v})
-                    for i, (s, v) in enumerate(shapes(out_image, transform=transform))
+                    for i, (s, v) in enumerate(shapes(data[rule_val]["08_highelev"], transform=transform))
                 ]
             )
-            data["becvalue_polys"][rule_poly] = gpd.GeoDataFrame.from_features(fc)
+            data[rule_val]["09_polybuf"] = gpd.GeoDataFrame.from_features(fc)
 
             # clip to original rule poly bnd
-            data["becvalue_polys_clipped"][rule_poly] = gpd.overlay(
-                data["becvalue_polys"][rule_poly],
-                data["rulepolys"][
-                    data["rulepolys"].polygon_number == rule_poly
-                ],
+            data[rule_val]["10_polyclip"] = gpd.overlay(
+                data[rule_val]["09_polybuf"],
+                data[rule_val]["01_rulepoly"],
                 how="intersection",
             )
 
-        # concatenate, dissolve and singlepart output becvalue polygons
-        data["becvalue_1"] = util.multi2single(
-            pd.concat(data["becvalue_polys_clipped"].values())
-            .pipe(gpd.GeoDataFrame)
+        # load clipped output polygon dfs into a list and concatenate
+        data["becvalue_1"] = pd.concat(
+            [
+                data[rule_val]["10_polyclip"]
+                for rule_val in data["rulepolys"].polygon_number.tolist()
+            ]
+        ).pipe(gpd.GeoDataFrame)
+
+        # dissolve the result
+        data["becvalue"] = util.multi2single(
+            data["becvalue_1"]
             .dissolve(by="becvalue")
             .reset_index()[["becvalue", "geometry"]]
         )
 
-        # are any smaller than the noise threshold?
-
-        # add beclabel column
-        data["becvalue_1"]['beclabel'] = data["becvalue_1"]["becvalue"].map(self.beclabel_lookup)
+        # add output beclabel column
+        data["becvalue"]["beclabel"] = data["becvalue"]["becvalue"].map(
+            self.beclabel_lookup
+        )
 
         self.data = data
 
@@ -450,31 +427,8 @@ class BECModel(object):
         # read DEM to get crs / width / height etc
         with rasterio.open(os.path.join(config["wksp"], "dem.tif")) as src:
 
-            if qa:
-                for raster in [
-                    "becvalue_1_initial",
-                    "becvalue_2_majorityfilter",
-                    "becvalue_3_noisefilter",
-                    "becvalue_4_areaclosing",
-                    "aclose"
-                    "rules_image",
-                    "aspect_class",
-                ]:
-                    with rasterio.open(
-                        os.path.join(config["wksp"], raster + ".tif"),
-                        "w",
-                        driver="GTiff",
-                        dtype=rasterio.uint16,
-                        count=1,
-                        width=src.width,
-                        height=src.height,
-                        crs=src.crs,
-                        transform=src.transform,
-                    ) as dst:
-                        dst.write(self.data[raster].astype(np.uint16), indexes=1)
-
-            # write output vectors to file
-            self.data["becvalue_1"].to_file(
+            # write final output layer to file
+            self.data["becvalue"].to_file(
                 os.path.join(config["wksp"], config["out_file"]),
                 layer=config["out_layer"],
                 driver="GPKG",
@@ -485,3 +439,49 @@ class BECModel(object):
                     os.path.join(config["wksp"], config["out_file"])
                 )
             )
+
+            # if specified, write all intermediate data to disk
+            if qa:
+                for rule_val in self.data["rulepolys"].polygon_number.tolist():
+                    for raster in [
+                        "03_ruleimg",
+                        "04_becinit",
+                        "05_majority",
+                        "06_noise",
+                        "07_areaclosing",
+                        "08_highelev",
+                    ]:
+                        out_tif = os.path.join(
+                            config["wksp"], "t{}_{}.tif".format(rule_val, raster)
+                        )
+                        with rasterio.open(
+                            out_tif,
+                            "w",
+                            driver="GTiff",
+                            dtype=rasterio.uint16,
+                            count=1,
+                            width=src.width,
+                            height=src.height,
+                            crs=src.crs,
+                            transform=src.transform,
+                        ) as dst:
+                            dst.write(
+                                self.data[rule_val][raster].astype(np.uint16), indexes=1
+                            )
+                for rule_val in self.data["rulepolys"].polygon_number.tolist():
+                    for lyr in [
+                        "01_rulepoly",
+                        "02_rulepolybuf",
+                        "09_polybuf",
+                        "10_polyclip",
+                    ]:
+                        self.data[rule_val][lyr].to_file(
+                            os.path.join(config["wksp"], config["out_file"]),
+                            layer="t{}_{}".format(rule_val, lyr),
+                            driver="GPKG",
+                        )
+                self.data["becvalue_1"].to_file(
+                    os.path.join(config["wksp"], config["out_file"]),
+                    layer="becvalue_1".format(rule_val, lyr),
+                    driver="GPKG",
+                )
