@@ -245,8 +245,7 @@ def multi2single(gdf):
     for i, row in gdf_multipoly.iterrows():
         Series_geometries = pd.Series(row.geometry)
         df = pd.concat(
-            [gpd.GeoDataFrame(row, crs=gdf_multipoly.crs).T]
-            * len(Series_geometries),
+            [gpd.GeoDataFrame(row, crs=gdf_multipoly.crs).T] * len(Series_geometries),
             ignore_index=True,
         )
         df["geometry"] = Series_geometries

@@ -381,25 +381,32 @@ class BECModel(object):
                         self.becvalue_lookup[merge_lookup[merge_label]],
                         data[rule_val]["08_highelev"],
                     )
+            # if there are no high elevation areas, skip above
+            else:
+                data[rule_val]["08_highelev"] = data[rule_val]["07_areaclosing"]
 
             # convert to polygon
             fc = FeatureCollection(
                 [
                     Feature(geometry=s, properties={"becvalue": v})
-                    for i, (s, v) in enumerate(shapes(data[rule_val]["08_highelev"], transform=transform))
+                    for i, (s, v) in enumerate(
+                        shapes(data[rule_val]["08_highelev"], transform=transform)
+                    )
                 ]
             )
             data[rule_val]["09_polybuf"] = gpd.GeoDataFrame.from_features(fc)
 
             # clip to original rule poly bnd
-            data[rule_val]["10_polyclip"] = gpd.overlay(
-                data[rule_val]["09_polybuf"],
-                data[rule_val]["01_rulepoly"],
-                how="intersection",
+            data[rule_val]["10_polyclip"] = util.multi2single(
+                gpd.overlay(
+                    data[rule_val]["09_polybuf"],
+                    data[rule_val]["01_rulepoly"],
+                    how="intersection",
+                )
             )
 
         # load clipped output polygon dfs into a list and concatenate
-        data["becvalue_1"] = pd.concat(
+        data["11_polyclipall"] = pd.concat(
             [
                 data[rule_val]["10_polyclip"]
                 for rule_val in data["rulepolys"].polygon_number.tolist()
@@ -407,11 +414,104 @@ class BECModel(object):
         ).pipe(gpd.GeoDataFrame)
 
         # dissolve the result
-        data["becvalue"] = util.multi2single(
-            data["becvalue_1"]
+        data["12_dissolved1"] = util.multi2single(
+            data["11_polyclipall"]
             .dissolve(by="becvalue")
             .reset_index()[["becvalue", "geometry"]]
         )
+
+        # After putting everything back together and dissolving, some polys
+        # smaller than the noise threshold may be introduced.
+        # Find them, extract into new df
+        data["13_dissolvenoise"] = data["12_dissolved1"][
+            data["12_dissolved1"]["geometry"].area
+            < self.config["noise_removal_threshold"]
+        ][["geometry"]]
+
+        # if we have noise, do an 'eliminate' on the sources of the noise
+        # by updating their becvalue to be the same as their neighbour, within
+        # the same rule polygon. This takes some processing.
+        if data["13_dissolvenoise"].shape[0] > 1:
+            log.info("Eliminating noise polys introduced in cross-rule poly dissolve")
+            # label the noise polys
+            data["13_dissolvenoise"]["noise"] = "noise"
+
+            # Get representative point of the small noise polys so we can easily
+            # select polys in various dataframes using intersects()
+            data["14_dissolvenoisepts"] = data["13_dissolvenoise"].copy()
+            data["14_dissolvenoisepts"]["geometry"] = data[
+                "14_dissolvenoisepts"
+            ].representative_point()
+
+            # make a copy the pre-dissolve df with just the needed columns
+            df1 = data["11_polyclipall"].copy().reset_index()
+            df1 = df1[["becvalue", "polygon_number", "geometry"]]
+
+            # overlay the copy with the sliver/noise points to identify which
+            # pre-dissolve polys need to be eliminated
+            data["15_toelim"] = gpd.sjoin(
+                df1, data["14_dissolvenoisepts"], how="left", op="intersects"
+            )[["becvalue", "polygon_number", "noise", "geometry"]]
+
+            # extract just the noise polygons, reset index and create a new
+            # column with unique values
+            data["16_noise"] = data["15_toelim"][
+                data["15_toelim"]["noise"] == "noise"
+            ].reset_index()
+            data["16_noise"]["id"] = data["16_noise"].index
+
+            # extract non-noise polys and buffer slightly
+            data["17_nonnoise"] = data["15_toelim"][data["15_toelim"].noise != "noise"]
+            data["17_nonnoise"]["geometry"] = data["17_nonnoise"].buffer(.01)
+
+            # find intersection of noise and buffered non-noise - the intersect
+            # with the largest area should generally have the longest shared
+            # edge This seems less prone to precision errors that may occur if
+            # actually generating shared edges.
+            df2 = gpd.overlay(data["16_noise"], data["17_nonnoise"], how="intersection")
+            df2["area"] = df2["geometry"].area
+
+            # join only to adjacent polys within the same rule polyon
+            data["18_noiseoverlay"] = df2[
+                df2["polygon_number_1"] == df2["polygon_number_2"]
+            ]
+
+            # There will generally only be one adjacent record within the same
+            # rule poly, but just to be sure, sort by id and intersection area
+            # to get the best match
+            data["18_noiseoverlay"] = data["18_noiseoverlay"].sort_values(
+                by=["id", "area"], ascending=[True, False]
+            )
+            data["18_noiseoverlay"] = data["18_noiseoverlay"].drop_duplicates(
+                subset="id", keep="first"
+            )
+
+            # convert resulting geometry to point within the polys
+            data["19_noiseoverlaypt"] = data["18_noiseoverlay"].copy()
+            data["19_noiseoverlaypt"]["geometry"] = data[
+                "19_noiseoverlaypt"
+            ].representative_point()
+            data["19_noiseoverlaypt"] = data["19_noiseoverlaypt"][
+                ["becvalue_2", "geometry"]
+            ]
+
+            # join these points back to the copy of the pre-dissolve dataframe,
+            # update the becvalue with the value of the neighbour
+            df3 = gpd.sjoin(df1, data["19_noiseoverlaypt"], how="left", op="intersects")
+            df3.loc[df3.index_right >= 0, "becvalue"] = df3.becvalue_2
+
+            # apply dissolve to the df with the updated values
+            data["becvalue"] = util.multi2single(
+                df3.dissolve(by="becvalue").reset_index()[["becvalue", "geometry"]]
+            )
+        else:
+            data["becvalue"] = data["12_dissolved1"]
+
+        # Because we can't specify a tolerance, overlaying polys generated
+        # from rasters can wreak precision havoc - creating ugly gap artifacts.
+        # Tidy the output with v small out/in buffer
+        data["becvalue"]["geometry"] = data["becvalue"].buffer(.01)
+        data["becvalue"]["geometry"] = data["becvalue"].buffer(-.01)
 
         # add output beclabel column
         data["becvalue"]["beclabel"] = data["becvalue"]["becvalue"].map(
@@ -480,8 +580,19 @@ class BECModel(object):
                             layer="t{}_{}".format(rule_val, lyr),
                             driver="GPKG",
                         )
-                self.data["becvalue_1"].to_file(
-                    os.path.join(config["wksp"], config["out_file"]),
-                    layer="becvalue_1".format(rule_val, lyr),
-                    driver="GPKG",
-                )
+                for templayer in [
+                    "11_polyclipall",
+                    "12_dissolved1",
+                    "13_dissolvenoise",
+                    "14_dissolvenoisepts",
+                    "15_toelim",
+                    "16_noise",
+                    "17_nonnoise",
+                    "18_noiseoverlay",
+                    "19_noiseoverlaypt",
+                ]:
+                    self.data[templayer].to_file(
+                        os.path.join(config["wksp"], config["out_file"]),
+                        layer=templayer,
+                        driver="GPKG",
+                    )
