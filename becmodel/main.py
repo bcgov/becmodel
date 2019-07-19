@@ -297,8 +297,12 @@ class BECModel(object):
                 X = np.where(data[rule_val]["05_majority"] == becvalue, 1, 0)
 
                 # fill holes, remove small objects
-                Y = morphology.remove_small_holes(X, noise_threshold)
-                Z = morphology.remove_small_objects(Y, noise_threshold)
+                Y = morphology.remove_small_holes(
+                    X, noise_threshold, connectivity=config["cell_connectivity"]
+                )
+                Z = morphology.remove_small_objects(
+                    Y, noise_threshold, connectivity=config["cell_connectivity"]
+                )
 
                 # insert values into output
                 data[rule_val]["06_noise"] = np.where(
@@ -317,7 +321,9 @@ class BECModel(object):
                 data[rule_val]["06_noise"],
                 225,
             )
-            Y = morphology.area_closing(X, noise_threshold, connectivity=1)
+            Y = morphology.area_closing(
+                X, noise_threshold, connectivity=config["cell_connectivity"]
+            )
             data[rule_val]["07_areaclosing"] = np.where(
                 (data[rule_val]["03_ruleimg"] == rule_val)
                 & (data[rule_val]["06_noise"] == 0),
@@ -367,7 +373,9 @@ class BECModel(object):
 
                     # remove small holes from parkland/woodland/high
                     Y = morphology.remove_small_holes(
-                        X, high_elevation_removal_threshold
+                        X,
+                        high_elevation_removal_threshold,
+                        connectivity=config["cell_connectivity"],
                     )
 
                     # apply the removed holes to output image where value
@@ -390,7 +398,11 @@ class BECModel(object):
                 [
                     Feature(geometry=s, properties={"becvalue": v})
                     for i, (s, v) in enumerate(
-                        shapes(data[rule_val]["08_highelev"], transform=transform)
+                        shapes(
+                            data[rule_val]["08_highelev"],
+                            transform=transform,
+                            connectivity=(config["cell_connectivity"] * 4),
+                        )
                     )
                 ]
             )

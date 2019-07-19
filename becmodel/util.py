@@ -66,6 +66,7 @@ def load_config(config_file):
         # convert int config values to int
         for key in [
             "cell_size",
+            "cell_connectivity",
             "high_elevation_removal_threshold",
             "noise_removal_threshold",
             "expand_bounds",
@@ -102,7 +103,18 @@ def validate_config(config):
                 str(config["cell_size"])
             )
         )
-
+    # translate rasterio style connectivity into skimage for internal use
+    if config["cell_connectivity"] == 4:
+        config["cell_connectivity"] = 1
+    elif config["cell_connectivity"] == 8:
+        config["cell_connectivity"] = 2
+    # validate connectivity
+    if config["cell_connectivity"] not in [1, 2]:
+        raise ConfigValueError(
+            "cell connectivity {} invalid - must be one of 1, 2, 4, 8".format(
+                str(config["cell_connectivity"])
+            )
+        )
 
 def load_tables(config):
     """load data from files specified in config and validate
