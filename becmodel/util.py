@@ -104,7 +104,6 @@ def validate_config(config):
         )
 
 
-
 def load_tables(config):
     """load data from files specified in config and validate
     """
