@@ -185,13 +185,19 @@ class BECModel(object):
         for mergerule in self.high_elevation_merges:
             for highelev_type in high_elevation_dissolves:
                 if mergerule["type"] == highelev_type:
-                    high_elevation_dissolves[highelev_type].append(mergerule["becvalue"])
+                    high_elevation_dissolves[highelev_type].append(
+                        mergerule["becvalue"]
+                    )
                 if mergerule["type"] == "woodland":
-                    high_elevation_dissolves["high"].append(mergerule["becvalue_target"])
+                    high_elevation_dissolves["high"].append(
+                        mergerule["becvalue_target"]
+                    )
 
         # remove any duplicates
         for highelev_type in ["alpine", "parkland", "woodland", "high"]:
-            high_elevation_dissolves[highelev_type] = list(set(high_elevation_dissolves[highelev_type]))
+            high_elevation_dissolves[highelev_type] = list(
+                set(high_elevation_dissolves[highelev_type])
+            )
 
         return high_elevation_dissolves
 
@@ -349,13 +355,16 @@ class BECModel(object):
             X = np.where(data["05_majority"] == becvalue, 1, 0)
 
             # fill holes, remove small objects
-            Y = morphology.remove_small_holes(X, noise_threshold)
-            Z = morphology.remove_small_objects(Y, noise_threshold)
+            # fill holes, remove small objects
+            Y = morphology.remove_small_holes(
+                X, noise_threshold, connectivity=config["cell_connectivity"]
+            )
+            Z = morphology.remove_small_objects(
+                Y, noise_threshold, connectivity=config["cell_connectivity"]
+            )
 
             # insert values into output
-            data["06_noise"] = np.where(
-                Z != 0, becvalue, data["06_noise"]
-            )
+            data["06_noise"] = np.where(Z != 0, becvalue, data["06_noise"])
 
         # ----------------------------------------------------------------
         # Noise Removal 2 - areaclosing
@@ -367,17 +376,14 @@ class BECModel(object):
         data["07_areaclosing"] = data["06_noise"].copy()
         for rule_poly in data["rulepolys"].polygon_number.tolist():
             # extract image area within the rule poly
-            X = np.where(
-                data["03_ruleimg"] == rule_poly,
-                data["06_noise"],
-                100
+            X = np.where(data["03_ruleimg"] == rule_poly, data["06_noise"], 100)
+            Y = morphology.area_closing(
+                X, noise_threshold, connectivity=config["cell_connectivity"]
             )
-            Y = morphology.area_closing(X, noise_threshold, connectivity=1)
             data["07_areaclosing"] = np.where(
-                (data["03_ruleimg"] == rule_poly) &
-                (data["06_noise"] == 0),
+                (data["03_ruleimg"] == rule_poly) & (data["06_noise"] == 0),
                 Y,
-                data["07_areaclosing"]
+                data["07_areaclosing"],
             )
 
         # ----------------------------------------------------------------
@@ -389,7 +395,8 @@ class BECModel(object):
         # convert high_elevation_removal_threshold value from m2 to n cells
         high_elevation_removal_threshold = int(
             self.config["high_elevation_removal_threshold"]
-            / (self.config["cell_size"] ** 2))
+            / (self.config["cell_size"] ** 2)
+        )
 
         # Because we are finding noise by aggregating and finding holes,
         # iterate through all but the first high elevation type.
@@ -397,23 +404,33 @@ class BECModel(object):
         # well (eg, if parkland is present, woodland and high must be too)
         high_elevation_types = list(self.high_elevation_dissolves.keys())
         for i, highelev_type in enumerate(high_elevation_types[:-1]):
-            log.info("Aggregating {} to remove {} under high_elevation_removal_threshold".format(high_elevation_types[i + 1], highelev_type))
+            log.info(
+                "Aggregating {} to remove {} under high_elevation_removal_threshold".format(
+                    high_elevation_types[i + 1], highelev_type
+                )
+            )
 
             # Extract area of interest
             # eg, find and aggregate all parkland values for finding alpine
             # area < threshold
             to_agg = self.high_elevation_dissolves[high_elevation_types[i + 1]]
             X = np.isin(data["08_highelev"], to_agg)
-            Y = morphology.remove_small_holes(X, high_elevation_removal_threshold)
+            Y = morphology.remove_small_holes(
+                X,
+                high_elevation_removal_threshold,
+                connectivity=config["cell_connectivity"],
+            )
 
             # remove the small areas in the output image by looping through
             # the merges for the given type, this iterates through the
             # rule polygons.
-            for merge in [m for m in self.high_elevation_merges if m["type"] == highelev_type]:
+            for merge in [
+                m for m in self.high_elevation_merges if m["type"] == highelev_type
+            ]:
                 data["08_highelev"] = np.where(
                     (Y == 1) & (data["03_ruleimg"] == merge["rule"]),
                     merge["becvalue_target"],
-                    data["08_highelev"]
+                    data["08_highelev"],
                 )
 
         # ----------------------------------------------------------------
@@ -455,13 +472,15 @@ class BECModel(object):
             X = np.where(data["09_majority2"] == becvalue, 1, 0)
 
             # fill holes, remove small objects
-            Y = morphology.remove_small_holes(X, noise_threshold)
-            Z = morphology.remove_small_objects(Y, noise_threshold)
+            Y = morphology.remove_small_holes(
+                X, noise_threshold, connectivity=config["cell_connectivity"]
+            )
+            Z = morphology.remove_small_objects(
+                Y, noise_threshold, connectivity=config["cell_connectivity"]
+            )
 
             # insert values into output
-            data["10_noise2"] = np.where(
-                Z != 0, becvalue, data["10_noise2"]
-            )
+            data["10_noise2"] = np.where(Z != 0, becvalue, data["10_noise2"])
 
         # ----------------------------------------------------------------
         # Convert to poly
@@ -469,13 +488,21 @@ class BECModel(object):
         fc = FeatureCollection(
             [
                 Feature(geometry=s, properties={"becvalue": v})
-                for i, (s, v) in enumerate(shapes(data["10_noise2"], transform=transform))
+                for i, (s, v) in enumerate(
+                    shapes(
+                        data["10_noise2"],
+                        transform=transform,
+                        connectivity=(config["cell_connectivity"] * 4),
+                    )
+                )
             ]
         )
         data["becvalue_polys"] = gpd.GeoDataFrame.from_features(fc)
 
         # add beclabel column to output polygons
-        data["becvalue_polys"]['beclabel'] = data["becvalue_polys"]["becvalue"].map(self.beclabel_lookup)
+        data["becvalue_polys"]["beclabel"] = data["becvalue_polys"]["becvalue"].map(
+            self.beclabel_lookup
+        )
 
         self.data = data
 
@@ -496,8 +523,7 @@ class BECModel(object):
                     "07_areaclosing",
                     "08_highelev",
                     "09_majority2",
-                    "10_noise2"
-
+                    "10_noise2",
                 ]:
                     with rasterio.open(
                         os.path.join(config["wksp"], raster + ".tif"),

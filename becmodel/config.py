@@ -6,6 +6,10 @@ defaultconfig = {
     "rulepolys_layer": "rule_polys",
     "elevation": "tests/data/elevation.csv",
     "cell_size": 50,
+    # cell connectivity accepts either rasterio (4/8) or skimage (1/2) style
+    # https://scikit-image.org/docs/dev/api/skimage.morphology.html#label
+    # https://rasterio.readthedocs.io/en/stable/api/rasterio.features.html#rasterio.features.shapes
+    "cell_connectivity": 1,
     "high_elevation_removal_threshold": 2500000,
     "noise_removal_threshold": 250000,
     "expand_bounds": 1000,
