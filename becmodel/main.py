@@ -50,6 +50,14 @@ class BECModel(object):
         # add zeros to reverse lookup
         self.beclabel_lookup[0] = None
 
+        # convert slope dependent filter sizes from m to cells
+        self.filtersize_low = ceil(
+            (self.config["majority_filter_low_slope_size"] / self.config["cell_size"])
+        )
+        self.filtersize_steep = ceil(
+            (self.config["majority_filter_steep_slope_size"] / self.config["cell_size"])
+        )
+
     @property
     def high_elevation_merges(self):
         """
@@ -258,24 +266,45 @@ class BECModel(object):
                 os.path.join(config["wksp"], "aspect.tif"),
                 os.path.join(config["wksp"], "dem.tif"),
                 "aspect",
-                zeroForFlat=True,
             )
 
         # load slope from file
         with rasterio.open(os.path.join(config["wksp"], "slope.tif")) as src:
             data["slope"] = src.read(1)
 
-        # load and classify aspect
+        # load aspect and convert to unsigned integer
         with rasterio.open(os.path.join(config["wksp"], "aspect.tif")) as src:
-            data["aspect"] = src.read(1)
-            # set aspect to -1 for all slopes less that 15%
-            data["aspect"][data["slope"] < config["flat_aspect_slope_threshold"]] = -1
-            data["02_aspectclass"] = data["aspect"].copy()
-            for aspect in config["aspects"]:
-                for rng in aspect["ranges"]:
-                    data["02_aspectclass"][
-                        (data["aspect"] >= rng["min"]) & (data["aspect"] < rng["max"])
-                    ] = aspect["code"]
+            data["aspect"] = src.read(1).astype(np.uint16)
+
+        # set aspect to 999 for all slopes less that 15%
+        data["aspect"][data["slope"] < config["aspect_flat_slope_threshold"]] = 999
+
+        # classify aspect
+        data["01_aspectclass"] = np.zeros(shape=shape, dtype="uint16")
+        for aspect in config["aspects"]:
+            for rng in aspect["ranges"]:
+                data["01_aspectclass"][
+                    (data["aspect"] >= rng["min"]) & (data["aspect"] < rng["max"])
+                ] = aspect["code"]
+
+        # smooth aspect class with majority() if specified in config
+        if config["aspect_pre_filter"]:
+            log.info("applying majority filter to aspect class")
+            data["01_aspectclass"] = np.where(
+                data["slope"] < config["majority_filter_steep_slope_threshold"],
+                majority(
+                    data["01_aspectclass"],
+                    morphology.rectangle(
+                        width=self.filtersize_low, height=self.filtersize_low
+                    ),
+                ),
+                majority(
+                    data["01_aspectclass"],
+                    morphology.rectangle(
+                        width=self.filtersize_steep, height=self.filtersize_steep
+                    ),
+                ),
+            )
 
         # ----------------------------------------------------------------
         # rule polygons to raster
@@ -305,18 +334,12 @@ class BECModel(object):
             for aspect in config["aspects"]:
                 data["04_becinit"][
                     (data["03_ruleimg"] == row["polygon_number"])
-                    & (data["02_aspectclass"] == aspect["code"])
+                    & (data["01_aspectclass"] == aspect["code"])
                     & (data["dem"] >= row[aspect["name"] + "_low"])
                     & (data["dem"] < row[aspect["name"] + "_high"])
                 ] = self.becvalue_lookup[row["beclabel"]]
 
         log.info("Running majority filter")
-        low_slope_size = ceil(
-            (config["majority_filter_low_slope_size"] / config["cell_size"])
-        )
-        steep_slope_size = ceil(
-            (config["majority_filter_steep_slope_size"] / config["cell_size"])
-        )
 
         # ----------------------------------------------------------------
         # majority filter
@@ -325,11 +348,15 @@ class BECModel(object):
             data["slope"] < config["majority_filter_steep_slope_threshold"],
             majority(
                 data["04_becinit"],
-                morphology.rectangle(width=low_slope_size, height=low_slope_size),
+                morphology.rectangle(
+                    width=self.filtersize_low, height=self.filtersize_low
+                ),
             ),
             majority(
                 data["04_becinit"],
-                morphology.rectangle(width=steep_slope_size, height=steep_slope_size),
+                morphology.rectangle(
+                    width=self.filtersize_steep, height=self.filtersize_steep
+                ),
             ),
         )
 
@@ -372,7 +399,7 @@ class BECModel(object):
         # (removing small holes and then removing small objects leaves holes
         # of 0 along rule poly edges)
         # ----------------------------------------------------------------
-        log.info("Cleaning noise filter results with morphology.area_closing()")
+        log.info("Running morphology.area_closing() to clean results of noise filter")
         data["07_areaclosing"] = data["06_noise"].copy()
         for rule_poly in data["rulepolys"].polygon_number.tolist():
             # extract image area within the rule poly
@@ -405,9 +432,7 @@ class BECModel(object):
         high_elevation_types = list(self.high_elevation_dissolves.keys())
         for i, highelev_type in enumerate(high_elevation_types[:-1]):
             log.info(
-                "Aggregating {} to remove {} under high_elevation_removal_threshold".format(
-                    high_elevation_types[i + 1], highelev_type
-                )
+                "Running high_elevation_removal_threshold on {}".format(highelev_type)
             )
 
             # Extract area of interest
@@ -447,11 +472,15 @@ class BECModel(object):
             data["slope"] < config["majority_filter_steep_slope_threshold"],
             majority(
                 data["08_highelev"],
-                morphology.rectangle(width=low_slope_size, height=low_slope_size),
+                morphology.rectangle(
+                    width=self.filtersize_low, height=self.filtersize_low
+                ),
             ),
             majority(
                 data["08_highelev"],
-                morphology.rectangle(width=steep_slope_size, height=steep_slope_size),
+                morphology.rectangle(
+                    width=self.filtersize_steep, height=self.filtersize_steep
+                ),
             ),
         )
 
@@ -461,7 +490,7 @@ class BECModel(object):
         # noise, run a basic noise filter
         # ----------------------------------------------------------------
         # initialize the output raster for noise filter
-        log.info("Removing any noise introduced by majority filter")
+        log.info("Running noise filter again to clean results of majority filter")
         data["10_noise2"] = data["09_majority2"].copy()
 
         # loop through all becvalues
@@ -515,7 +544,7 @@ class BECModel(object):
 
             if qa:
                 for raster in [
-                    "02_aspectclass",
+                    "01_aspectclass",
                     "03_ruleimg",
                     "04_becinit",
                     "05_majority",

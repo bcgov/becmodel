@@ -17,7 +17,8 @@ defaultconfig = {
     "out_file": "becmodel.gpkg",
     "out_layer": "becvalue",
     "log_file": "becmodel.log",
-    "flat_aspect_slope_threshold": 15,
+    "aspect_pre_filter": False,
+    "aspect_flat_slope_threshold": 15,
     "majority_filter_steep_slope_threshold": 25,
     "majority_filter_low_slope_size": 250,
     "majority_filter_steep_slope_size": 150,
@@ -46,9 +47,9 @@ defaultconfig = {
             "name": "neutral",
             "code": 200,
             "ranges": [
-                {"min": -1, "max": 0},  # -1 values are flat areas
                 {"min": 45, "max": 135},
                 {"min": 270, "max": 315},
+                {"min": 999, "max": 1000},  # 999 for flat areas
             ],
         },
         {"name": "warm", "code": 300, "ranges": [{"min": 135, "max": 270}]},

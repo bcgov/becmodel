@@ -71,6 +71,9 @@ def load_config(config_file):
             "expand_bounds",
         ]:
             config[key] = int(config[key])
+        # convert boolean config values to boolean
+        for key in ["aspect_pre_filter"]:
+            config[key] = config[key] == "True"
 
     validate_config(config)
     return config
