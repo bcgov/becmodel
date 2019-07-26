@@ -1,6 +1,7 @@
 import configparser
 from math import trunc
 import os
+from pathlib import Path
 
 import logging
 import logging.handlers
@@ -127,7 +128,15 @@ def load_tables(config):
     data = {}
     try:
         # -- elevation
-        data["elevation"] = pd.read_csv(config["elevation"])
+        if Path(config["elevation"]).suffix == ".csv":
+            data["elevation"] = pd.read_csv(config["elevation"])
+        # if loading elevation table from Excel,
+        # **values must be in the first worksheet**
+        elif Path(config["elevation"]).suffix in [".xls", ".xlsx"]:
+            data["elevation"] = pd.read_excel(
+                config["elevation"],
+                index_col=None
+            )
         data["elevation"].rename(columns=str.lower, inplace=True)
         data["elevation"].rename(columns=elevation_column_remap, inplace=True)
         data["elevation"].astype(

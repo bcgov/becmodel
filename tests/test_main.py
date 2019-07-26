@@ -61,6 +61,13 @@ def test_load_tables():
     assert BM.data["elevation"].beclabel[0] == "MS  xk 1"
 
 
+def test_load_excel():
+    BM = BECModel("tests/test.cfg")
+    BM.update_config({"elevation": "tests/data/elevation.xlsx"})
+    BM.validate()
+    assert BM.data["elevation"].beclabel[0] == "MS  xk 1"
+
+
 # invalid types in rule polys
 def test_load_invalid_rulepolys():
     with pytest.raises(DataValueError):

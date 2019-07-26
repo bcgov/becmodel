@@ -6,6 +6,7 @@ dependencies:
 - fiona
 - rasterio
 - pandas
+- xlrd
 - geopandas
 - pip:
   - bcdata
