@@ -10,4 +10,3 @@ dependencies:
 - geopandas
 - pip:
   - bcdata
-  - http://www.hillcrestgeo.ca/pypi/becmodel/becmodel-0.0.2.dev0.tar.gz

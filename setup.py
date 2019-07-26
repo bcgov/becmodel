@@ -15,6 +15,18 @@ with open('becmodel/__init__.py', 'r') as f:
             version = version.strip("'")
             break
 
+requires = [
+    'bcdata',
+    'click',
+    'fiona',
+    'gdal',
+    'geopandas'
+    'numpy',
+    'pandas',
+    'rasterio',
+    'scikit-image'
+    'xlrd',
+]
 
 test_requirements = [
     'pytest'
@@ -40,7 +52,7 @@ setup(name='becmodel',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       include_package_data=True,
       zip_safe=False,
-      install_requires=read('requirements.txt').splitlines(),
+      install_requires=requires,
       tests_require=test_requirements,
       entry_points="""
       [console_scripts]
