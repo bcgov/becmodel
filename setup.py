@@ -15,14 +15,6 @@ with open('becmodel/__init__.py', 'r') as f:
             version = version.strip("'")
             break
 
-requires = [
-    'bcdata',
-    'gdal',
-    'fiona',
-    'rasterio',
-    'click',
-    'numpy'
-]
 
 test_requirements = [
     'pytest'
@@ -48,7 +40,7 @@ setup(name='becmodel',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       include_package_data=True,
       zip_safe=False,
-      install_requires=requires,
+      install_requires=read('requirements.txt').splitlines(),
       tests_require=test_requirements,
       entry_points="""
       [console_scripts]
