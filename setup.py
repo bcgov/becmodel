@@ -20,11 +20,11 @@ requires = [
     'click',
     'fiona',
     'gdal',
-    'geopandas'
+    'geopandas',
     'numpy',
     'pandas',
     'rasterio',
-    'scikit-image'
+    'scikit-image',
     'xlrd',
 ]
 
