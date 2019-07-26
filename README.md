@@ -36,7 +36,7 @@ A polygon layer where each polygon represents a unique combination of elevations
 
 ### Elevation file
 
-A table (csv format) with the following columns (in any order, case insensitive):
+A table (one of csv/xls/xls formats) with the following columns (in any order, case insensitive):
 
 
     beclabel       : string
@@ -48,6 +48,7 @@ A table (csv format) with the following columns (in any order, case insensitive)
     warm_high      : integer
     polygon_number : integer
 
+If using an Excel file, the elevation table data must be in the first worksheet, with data originating at Column A, Row 1.
 
 ### Config file
 
