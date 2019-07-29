@@ -54,10 +54,16 @@ class BECModel(object):
 
         # convert slope dependent filter sizes from m to cells
         self.filtersize_low = ceil(
-            (self.config["majority_filter_size_slope_low_metres"] / self.config["cell_size_metres"])
+            (
+                self.config["majority_filter_size_slope_low_metres"]
+                / self.config["cell_size_metres"]
+            )
         )
         self.filtersize_steep = ceil(
-            (self.config["majority_filter_size_slope_steep_metres"] / self.config["cell_size_metres"])
+            (
+                self.config["majority_filter_size_slope_steep_metres"]
+                / self.config["cell_size_metres"]
+            )
         )
 
     @property
@@ -211,20 +217,19 @@ class BECModel(object):
 
         return high_elevation_dissolves
 
-    def run(self, overwrite=False):
+    def load(self, overwrite=False):
         """ Load input data, do all model calculations and filters
         """
-        config = self.config
         self.validate()
 
-        # shortcut
+        # shortcuts
+        config = self.config
         data = self.data
 
         log.info("Downloading and processing DEM")
 
         # get bounds from gdf and bump out 2km
         bounds = list(data["rulepolys"].geometry.total_bounds)
-        expansion = 2000
         xmin = bounds[0] - config["expand_bounds_metres"]
         ymin = bounds[1] - config["expand_bounds_metres"]
         xmax = bounds[2] + config["expand_bounds_metres"]
@@ -251,8 +256,8 @@ class BECModel(object):
 
         # load dem into memory and get the shape / transform
         with rasterio.open(os.path.join(config["wksp"], "dem.tif")) as src:
-            shape = src.shape
-            transform = src.transform
+            self.shape = src.shape
+            self.transform = src.transform
             data["dem"] = src.read(1)
 
         # generate slope and aspect (these are always written to file)
@@ -279,10 +284,12 @@ class BECModel(object):
             data["aspect"] = src.read(1).astype(np.uint16)
 
         # set aspect to 999 for all slopes less that 15%
-        data["aspect"][data["slope"] < config["neutral_aspect_slope_threshold_percent"]] = 999
+        data["aspect"][
+            data["slope"] < config["neutral_aspect_slope_threshold_percent"]
+        ] = 999
 
         # classify aspect
-        data["01_aspectclass"] = np.zeros(shape=shape, dtype="uint16")
+        data["01_aspectclass"] = np.zeros(shape=self.shape, dtype="uint16")
         for aspect in config["aspects"]:
             for rng in aspect["ranges"]:
                 data["01_aspectclass"][
@@ -299,34 +306,51 @@ class BECModel(object):
                     data["rulepolys"].geometry, data["rulepolys"].polygon_number
                 )
             ),
-            out_shape=shape,
-            transform=transform,
+            out_shape=self.shape,
+            transform=self.transform,
             all_touched=False,
             dtype=np.uint16,
         )
+        self.data = data
 
-        # ----------------------------------------------------------------
-        # Generate initial becvalue raster
-        # Generate becvalue raster by iterating through elevation table,
-        # setting output raster to becvalue for each row where criteria are met
-        # by the dem/aspect/rulepolys
-        # ----------------------------------------------------------------
+    def model(self):
+        """
+        Generate initial becvalue raster
+        Create the raster by iterating through elevation table,
+        setting output raster to becvalue for each row where criteria are met
+        by the dem/aspect/rulepolys
+        """
         log.info("Generating initial becvalue raster")
-        data["04_becinit"] = np.zeros(shape=shape, dtype="uint16")
+        # shortcut
+        data = self.data
+
+        data["04_becinit"] = np.zeros(shape=self.shape, dtype="uint16")
         for index, row in data["elevation"].iterrows():
-            for aspect in config["aspects"]:
+            for aspect in self.config["aspects"]:
                 data["04_becinit"][
                     (data["03_ruleimg"] == row["polygon_number"])
                     & (data["01_aspectclass"] == aspect["code"])
                     & (data["dem"] >= row[aspect["name"] + "_low"])
                     & (data["dem"] < row[aspect["name"] + "_high"])
                 ] = self.becvalue_lookup[row["beclabel"]]
+        self.data = data
 
-        log.info("Running majority filter")
+    def postfilter(self):
+        """ Tidy the output bec zones by applying several filters:
+        - majority
+        - noise
+        - area closing (fill in 0 areas created by noise filter)
+        - majority (again) to tidy edge effects created by area_closing()
+        - noise (again) to remove any noise created by 2nd majority
+        """
+        # shortcuts
+        config = self.config
+        data = self.data
 
         # ----------------------------------------------------------------
         # majority filter
         # ----------------------------------------------------------------
+        log.info("Running majority filter")
         data["05_majority"] = np.where(
             data["slope"] < config["majority_filter_steep_slope_threshold_percent"],
             majority(
@@ -351,11 +375,12 @@ class BECModel(object):
 
         # convert noise_removal_threshold value from ha to n cells
         noise_threshold = int(
-            (config["noise_removal_threshold_ha"] * 10000) / (config["cell_size_metres"] ** 2)
+            (config["noise_removal_threshold_ha"] * 10000)
+            / (config["cell_size_metres"] ** 2)
         )
 
         # initialize the output raster for noise filter
-        data["06_noise"] = np.zeros(shape=shape, dtype="uint16")
+        data["06_noise"] = np.zeros(shape=self.shape, dtype="uint16")
 
         # loop through all becvalues
         # (first removing the extra zero in the lookup)
@@ -404,7 +429,7 @@ class BECModel(object):
         data["08_highelev"] = data["07_areaclosing"].copy()
         # convert high_elevation_removal_threshold value from ha to n cells
         high_elevation_removal_threshold = int(
-            ( self.config["high_elevation_removal_threshold_ha"] * 10000)
+            (self.config["high_elevation_removal_threshold_ha"] * 10000)
             / (self.config["cell_size_metres"] ** 2)
         )
 
@@ -503,7 +528,7 @@ class BECModel(object):
                 for i, (s, v) in enumerate(
                     shapes(
                         data["10_noise2"],
-                        transform=transform,
+                        transform=self.transform,
                         connectivity=(config["cell_connectivity"] * 4),
                     )
                 )

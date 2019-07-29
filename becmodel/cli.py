@@ -14,5 +14,7 @@ def cli(config_file, overwrite, qa, validate):
         BM.validate()
         click.echo("becmodel: data validation successful")
     else:
-        BM.run(overwrite=overwrite)
+        BM.load(overwrite=overwrite)
+        BM.model()
+        BM.postfilter()
         BM.write(qa)
