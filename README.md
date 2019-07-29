@@ -78,4 +78,4 @@ Modify your config file as required and provide path of the config file as an ar
         becmodel.main INFO     Running high elevation minimum size filter
         becmodel.main INFO     Output becmodel_tempdata/becmodel.gpkg created
 
-Temp data are written to the default workspace `becmodel_tempdata` or to the folder specified by the `wskp` key in the config file.
+Temp data are written to the default workspace `becmodel_tempdata` or to the folder specified by the `temp_folder` key in the config file.

@@ -53,6 +53,10 @@ def load_config(config_file):
     """Read provided config file, overwriting default config values
     """
     config = defaultconfig
+
+    # set config temp_folder to wksp for brevity
+    config["wksp"] = config["temp_folder"]
+
     if config_file:
         log.info("Loading config from file: %s", config_file)
         cfg = configparser.ConfigParser()
@@ -66,15 +70,12 @@ def load_config(config_file):
 
         # convert int config values to int
         for key in [
-            "cell_size",
-            "high_elevation_removal_threshold",
-            "noise_removal_threshold",
-            "expand_bounds",
+            "cell_size_metres",
+            "high_elevation_removal_threshold_ha",
+            "noise_removal_threshold_ha",
+            "expand_bounds_metres",
         ]:
             config[key] = int(config[key])
-        # convert boolean config values to boolean
-        for key in ["aspect_pre_filter"]:
-            config[key] = config[key] == "True"
 
     validate_config(config)
     return config
@@ -97,13 +98,13 @@ def validate_config(config):
         )
     # for alignment to work, cell size must be <= 100m
     if (
-        config["cell_size"] < 25
-        or config["cell_size"] > 100
-        or config["cell_size"] % 5 != 0
+        config["cell_size_metres"] < 25
+        or config["cell_size_metres"] > 100
+        or config["cell_size_metres"] % 5 != 0
     ):
         raise ConfigValueError(
             "cell size {} invalid - must be a multiple of 5 from 25-100".format(
-                str(config["cell_size"])
+                str(config["cell_size_metres"])
             )
         )
 
@@ -237,13 +238,6 @@ def configure_logging(config):
     streamhandler.setFormatter(formatter)
     streamhandler.setLevel(logging.INFO)
     logger.addHandler(streamhandler)
-
-    filehandler = logging.handlers.TimedRotatingFileHandler(
-        config["log_file"], when="D", interval=7, backupCount=10
-    )
-    filehandler.setFormatter(formatter)
-    filehandler.setLevel(logging.INFO)
-    logger.addHandler(filehandler)
 
 
 def multi2single(gdf):

@@ -5,23 +5,18 @@ defaultconfig = {
     "rulepolys_file": "tests/data/data.gdb.zip",
     "rulepolys_layer": "rule_polys",
     "elevation": "tests/data/elevation.csv",
-    "cell_size": 50,
-    # cell connectivity accepts either rasterio (4/8) or skimage (1/2) style
-    # https://scikit-image.org/docs/dev/api/skimage.morphology.html#label
-    # https://rasterio.readthedocs.io/en/stable/api/rasterio.features.html#rasterio.features.shapes
-    "cell_connectivity": 1,
-    "high_elevation_removal_threshold": 2500000,
-    "noise_removal_threshold": 250000,
-    "expand_bounds": 1000,
-    "wksp": "becmodel_tempdata",
+    "temp_folder": "becmodel_tempdata",
     "out_file": "becmodel.gpkg",
     "out_layer": "becvalue",
-    "log_file": "becmodel.log",
-    "aspect_pre_filter": False,
-    "aspect_flat_slope_threshold": 15,
-    "majority_filter_steep_slope_threshold": 25,
-    "majority_filter_low_slope_size": 250,
-    "majority_filter_steep_slope_size": 150,
+    "cell_size_metres": 50,
+    "cell_connectivity": 1,
+    "noise_removal_threshold_ha": 10,
+    "high_elevation_removal_threshold_ha": 100,
+    "neutral_aspect_slope_threshold_percent": 15,
+    "majority_filter_steep_slope_threshold_percent": 25,
+    "majority_filter_size_slope_low_metres": 250,
+    "majority_filter_size_slope_steep_metres": 150,
+    "expand_bounds_metres": 2000,
     # ----------------------------------------------------------------------
     # ---- Below are config items that are not configurable via config file.
     # ---- Changes to these values require changes to this file.
