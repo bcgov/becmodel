@@ -51,9 +51,7 @@ def load_tables(config):
         "neut_high": "neutral_high",
         "polygonnbr": "polygon_number",
     }
-    rules_column_remap = {
-        "polygonnbr": "polygon_number",
-    }
+    rules_column_remap = {"polygonnbr": "polygon_number"}
 
     data = {}
     try:
@@ -83,9 +81,11 @@ def load_tables(config):
             config["rulepolys_file"], layer=config["rulepolys_layer"]
         )
         # -- reproject if necessary
-        if data["rulepolys"].crs != {'init': 'EPSG:3005'}:
-            log.info("Input data is not specified as BC Albers, attempting to reproject")
-            data["rulepolys"] = data["rulepolys"].to_crs({'init': 'EPSG:3005'})
+        if data["rulepolys"].crs != {"init": "EPSG:3005"}:
+            log.info(
+                "Input data is not specified as BC Albers, attempting to reproject"
+            )
+            data["rulepolys"] = data["rulepolys"].to_crs({"init": "EPSG:3005"})
         data["rulepolys"].rename(columns=str.lower, inplace=True)
         data["rulepolys"].rename(columns=rules_column_remap, inplace=True)
     except:

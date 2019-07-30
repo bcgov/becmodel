@@ -88,7 +88,9 @@ class BECModel(object):
                 )
 
         # validate rule polygon layer exists
-        if self.config["rulepolys_layer"] and self.config["rulepolys_layer"] not in fiona.listlayers(self.config["rulepolys_file"]):
+        if self.config["rulepolys_layer"] and self.config[
+            "rulepolys_layer"
+        ] not in fiona.listlayers(self.config["rulepolys_file"]):
             raise ConfigValueError(
                 "config {}: {} does not exist in {}".format(
                     key, self.config["rulepolys_layer"], self.config["rulepolys_file"]
@@ -282,9 +284,7 @@ class BECModel(object):
         # arbitrarily assign grid raster values based on list of beclabels
         self.becvalue_lookup = {
             v: i
-            for i, v in enumerate(
-                list(data["elevation"].beclabel.unique()), start=1
-            )
+            for i, v in enumerate(list(data["elevation"].beclabel.unique()), start=1)
         }
         # create a reverse lookup
         self.beclabel_lookup = {
@@ -345,7 +345,9 @@ class BECModel(object):
         # provide an option to pre-filter the DEM used for aspect generation
         if config["dem_prefilter"] is True:
             aspect_dem = os.path.join(config["wksp"], "dem_filtered.tif")
-            data["dem_filtered"] = mean(data["dem"].astype(np.uint16), morphology.disk(3))
+            data["dem_filtered"] = mean(
+                data["dem"].astype(np.uint16), morphology.disk(3)
+            )
             with rasterio.open(
                 aspect_dem,
                 "w",
@@ -371,9 +373,7 @@ class BECModel(object):
             )
         if not os.path.exists(os.path.join(config["wksp"], "aspect.tif")):
             gdal.DEMProcessing(
-                os.path.join(config["wksp"], "aspect.tif"),
-                aspect_dem,
-                "aspect",
+                os.path.join(config["wksp"], "aspect.tif"), aspect_dem, "aspect"
             )
 
         # load slope from file
