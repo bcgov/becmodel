@@ -24,7 +24,7 @@ Alternatively, install via `pip install` if:
 
 ## Required files
 
-### Rule polygon file
+### 1. Rule polygons
 
 A polygon layer where each polygon represents a unique combination of elevations rules for the occuring BGC units. The file must:
 
@@ -37,7 +37,7 @@ All internal files and outputs are in the BC Albers (`EPSG:3005`) coordinate sys
 
 See [example rule polygon layer](examples/robson/rulepolys.geojson)
 
-### Elevation file
+### 2. Elevation table
 
 A table (one of csv/xls/xls formats) with the following columns (in any order, case insensitive, short names also accepted where noted)
 
@@ -55,9 +55,9 @@ If using an Excel file, the elevation table data must be in the first worksheet,
 
 See [example elevation file](examples/robson/elevation.csv)
 
-### Config file
+### 3. Configuration / initialization file
 
-A text file that defines the parameters for the model run, overriding the defaults.
+A text [initialization file](https://docs.python.org/3/library/configparser.html#supported-ini-file-structure) that defines the parameters for the model run, overriding the defaults. The file must include the `[CONFIG]` section header. The file may have any file name or extension - file extensions `ini`, `cfg`, `txt` are all valid. The `becmodel` command described below requires a configuration file, to use all default parameters leave the file empty after the `[CONFIG]` header.
 
 See example config files:
 

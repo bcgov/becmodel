@@ -2,12 +2,12 @@
 # To overwrite these values, initialize becmodel with a config file
 
 defaultconfig = {
-    "rulepolys_file": "tests/data/data.gdb.zip",
-    "rulepolys_layer": "rule_polys",
-    "elevation": "tests/data/elevation.csv",
-    "temp_folder": "becmodel_tempdata",
+    "rulepolys_file": "becmodel.gdb",
+    "rulepolys_layer": "rulepolys",
+    "elevation": "elevation.xls",
+    "temp_folder": "tmp",
     "out_file": "becmodel.gpkg",
-    "out_layer": "becvalue",
+    "out_layer": "becmodel",
     "cell_size_metres": 50,
     "cell_connectivity": 1,
     "dem_prefilter": False,

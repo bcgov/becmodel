@@ -47,20 +47,19 @@ class BECModel(object):
 
         # load and validate supplied config file
         if config_file:
-            self.update_config({"config_file": config_file})
-            self.read_config()
+            self.read_config(config_file)
             self.validate_config()
         util.configure_logging(self.config)
 
         # load inputs & validate
         self.data = util.load_tables(self.config)
 
-    def read_config(self):
+    def read_config(self, config_file):
         """Read provided config file, overwriting default config values
         """
-        log.info("Loading config from file: %s", self.config["config_file"])
+        log.info("Loading config from file: %s", config_file)
         cfg = configparser.ConfigParser()
-        cfg.read(self.config["config_file"])
+        cfg.read(config_file)
         cfg_dict = dict(cfg["CONFIG"])
 
         for key in cfg_dict:
@@ -76,6 +75,18 @@ class BECModel(object):
             "expand_bounds_metres",
         ]:
             self.config[key] = int(self.config[key])
+        self.config["config_file"] = config_file
+
+    def update_config(self, update_dict, reload=False):
+        """Update config dictionary, reloading source data if specified
+        """
+        self.config.update(update_dict)
+        # set config temp_folder to wksp for brevity
+        if "temp_folder" in update_dict.keys():
+            self.config["wksp"] = update_dict["temp_folder"]
+        self.validate_config()
+        if reload:
+            self.data = util.load_tables(self.config)
 
     def validate_config(self):
         """Validate provided config
@@ -111,17 +122,6 @@ class BECModel(object):
         for key in self.config:
             if self.config[key] in ["True", "False"]:
                 self.config[key] = self.config[key] == "True"
-
-    def update_config(self, update_dict, reload=False):
-        """Update config dictionary, reloading source data if specified
-        """
-        self.config.update(update_dict)
-        # set config temp_folder to wksp for brevity
-        if "temp_folder" in update_dict.keys():
-            self.config["wksp"] = update_dict["temp_folder"]
-        self.validate_config()
-        if reload:
-            self.data = util.load_tables(self.config)
 
     @property
     def high_elevation_merges(self):

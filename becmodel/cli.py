@@ -7,7 +7,7 @@ from becmodel import BECModel
 @click.option("-v", "--validate", is_flag=True)
 @click.option("-o", "--overwrite", is_flag=True)
 @click.option("-qa", "--qa", is_flag=True)
-@click.argument("config_file", type=click.Path(exists=True))
+@click.argument("config_file", type=click.Path(exists=True), required=False)
 def cli(config_file, overwrite, qa, validate):
     BM = BECModel(config_file)
     if validate:
