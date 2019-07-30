@@ -61,29 +61,35 @@ A text [initialization file](https://docs.python.org/3/library/configparser.html
 
 See example config files:
 
-- [example 1](sample_config.cfg)
-- [example 2](examples/robson/robson.cfg)
-
+- [Example 1 - all available parameters](sample_config.cfg)
+- [Example 2 - project specific](examples/robson/robson.cfg)
 
 
 ## Usage
 
-Modify your config file as required and provide path of the config file as an argument to the script:
+Create / modify a config file as required and provide the path to the config file as an argument to the script:
 
       $ becmodel --help
-        Usage: becmodel [OPTIONS] CONFIG_FILE
+        Usage: becmodel [OPTIONS] [CONFIG_FILE]
 
         Options:
           -v, --validate
           -o, --overwrite
+          -qa, --qa
           --help           Show this message and exit.
 
-      $ becmodel sample_config.cfg
+      $ becmodel tests/test.cfg
+        becmodel.util INFO     Input data is not specified as BC Albers, attempting to reproject
         becmodel.main INFO     Downloading and processing DEM
         becmodel.main INFO     Generating initial becvalue raster
         becmodel.main INFO     Running majority filter
         becmodel.main INFO     Running noise removal filter
-        becmodel.main INFO     Running high elevation minimum size filter
-        becmodel.main INFO     Output becmodel_tempdata/becmodel.gpkg created
+        becmodel.main INFO     Running morphology.area_closing() to clean results of noise filter
+        becmodel.main INFO     Running high_elevation_removal_threshold on alpine
+        becmodel.main INFO     Running high_elevation_removal_threshold on parkland
+        becmodel.main INFO     Running high_elevation_removal_threshold on woodland
+        becmodel.main INFO     Running majority filter again to tidy edges
+        becmodel.main INFO     Running noise filter again to clean results of majority filter
+        becmodel.main INFO     Output becmodel.gpkg created
 
-Temp data are written to the default workspace `becmodel_tempdata` or to the folder specified by the `temp_folder` key in the config file.
+Temporary files (`dem.tif`, `aspect.tif` etc) are written to the folder `tempdata` or as specified by the `temp_folder` key in the config file.

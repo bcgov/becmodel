@@ -76,6 +76,7 @@ class BECModel(object):
         ]:
             self.config[key] = int(self.config[key])
         self.config["config_file"] = config_file
+        self.config["wksp"] = self.config["temp_folder"]
 
     def update_config(self, update_dict, reload=False):
         """Update config dictionary, reloading source data if specified
@@ -678,13 +679,7 @@ class BECModel(object):
 
             # write output vectors to file
             self.data["becvalue_polys"].to_file(
-                os.path.join(config["wksp"], config["out_file"]),
-                layer=config["out_layer"],
-                driver="GPKG",
+                config["out_file"], layer=config["out_layer"], driver="GPKG"
             )
 
-            log.info(
-                "Output {} created".format(
-                    os.path.join(config["wksp"], config["out_file"])
-                )
-            )
+            log.info("Output {} created".format(config["out_file"]))
