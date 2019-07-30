@@ -69,7 +69,6 @@ def load_tables(config):
         data["elevation"].astype(
             {
                 "beclabel": np.str,
-                "class_name": np.str,
                 "cool_low": np.int16,
                 "cool_high": np.int16,
                 "neutral_low": np.int16,
