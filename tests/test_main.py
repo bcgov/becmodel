@@ -38,6 +38,14 @@ def test_invalid_rule_layer():
         BM.update_config({"rulepolys_layer": "nodata"})
 
 
+def test_reproject_rule_layer():
+    BM = BECModel(TESTCONFIG)
+    BM.update_config({"rulepolys_file": "tests/data/rulepolys.geojson"})
+    BM.update_config({"rulepolys_layer": None})
+    BM.load()
+    assert BM.data["rulepolys"].crs == {"init": "EPSG:3005"}
+
+
 def test_invalid_cell_size1():
     with pytest.raises(ConfigValueError):
         BM = BECModel(TESTCONFIG)
@@ -65,6 +73,14 @@ def test_load_excel():
     BM = BECModel(TESTCONFIG)
     BM.update_config({"elevation": "tests/data/elevation.xlsx"})
     assert BM.data["elevation"].beclabel[0] == "MS  xk 1"
+
+
+def test_prefilter(tmpdir):
+    BM = BECModel("tests/test.cfg")
+    BM.update_config({"temp_folder": str(tmpdir)})
+    BM.update_config({"dem_prefilter": "True"})
+    BM.load()
+    assert os.path.exists(tmpdir.join("dem_filtered.tif"))
 
 
 # invalid types in rule polys
@@ -102,7 +118,7 @@ def test_run(tmpdir):
     """ Check that outputs are created, not necessarily correct...
     """
     BM = BECModel("tests/test.cfg")
-    BM.update_config({"wksp": str(tmpdir)})
+    BM.update_config({"temp_folder": str(tmpdir)})
     BM.load()
     BM.model()
     BM.postfilter()

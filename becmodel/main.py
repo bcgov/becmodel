@@ -11,8 +11,9 @@ from osgeo import gdal
 import numpy as np
 import geopandas as gpd
 from geojson import Feature, FeatureCollection
-from skimage.filters.rank import majority
+from skimage.filters.rank import majority, mean
 import skimage.morphology as morphology
+
 import bcdata
 
 import becmodel
@@ -87,7 +88,7 @@ class BECModel(object):
                 )
 
         # validate rule polygon layer exists
-        if self.config["rulepolys_layer"] not in fiona.listlayers(self.config["rulepolys_file"]):
+        if self.config["rulepolys_layer"] and self.config["rulepolys_layer"] not in fiona.listlayers(self.config["rulepolys_file"]):
             raise ConfigValueError(
                 "config {}: {} does not exist in {}".format(
                     key, self.config["rulepolys_layer"], self.config["rulepolys_file"]
@@ -104,6 +105,10 @@ class BECModel(object):
                     str(self.config["cell_size_metres"])
                 )
             )
+        # convert True/False config values to boolean type
+        for key in self.config:
+            if self.config[key] in ["True", "False"]:
+                self.config[key] = self.config[key] == "True"
 
     def update_config(self, update_dict, reload=False):
         """Update config dictionary, reloading source data if specified
@@ -304,7 +309,7 @@ class BECModel(object):
 
         log.info("Downloading and processing DEM")
 
-        # get bounds from gdf and bump out 2km
+        # get bounds from gdf and bump out by specified expansion
         bounds = list(data["rulepolys"].geometry.total_bounds)
         xmin = bounds[0] - config["expand_bounds_metres"]
         ymin = bounds[1] - config["expand_bounds_metres"]
@@ -336,7 +341,27 @@ class BECModel(object):
             self.transform = src.transform
             data["dem"] = src.read(1)
 
-        # generate slope and aspect (these are always written to file)
+        # because slope and aspect are always derived from a file DEM,
+        # provide an option to pre-filter the DEM used for aspect generation
+        if config["dem_prefilter"] is True:
+            aspect_dem = os.path.join(config["wksp"], "dem_filtered.tif")
+            data["dem_filtered"] = mean(data["dem"].astype(np.uint16), morphology.disk(3))
+            with rasterio.open(
+                aspect_dem,
+                "w",
+                driver="GTiff",
+                dtype=rasterio.uint16,
+                count=1,
+                width=src.width,
+                height=src.height,
+                crs=src.crs,
+                transform=src.transform,
+            ) as dst:
+                dst.write(self.data["dem_filtered"], indexes=1)
+        else:
+            aspect_dem = os.path.join(config["wksp"], "dem.tif")
+
+        # generate slope and aspect
         if not os.path.exists(os.path.join(config["wksp"], "slope.tif")):
             gdal.DEMProcessing(
                 os.path.join(config["wksp"], "slope.tif"),
@@ -347,7 +372,7 @@ class BECModel(object):
         if not os.path.exists(os.path.join(config["wksp"], "aspect.tif")):
             gdal.DEMProcessing(
                 os.path.join(config["wksp"], "aspect.tif"),
-                os.path.join(config["wksp"], "dem.tif"),
+                aspect_dem,
                 "aspect",
             )
 

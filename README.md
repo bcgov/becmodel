@@ -28,33 +28,41 @@ Alternatively, install via `pip install` if:
 
 A polygon layer where each polygon represents a unique combination of elevations rules for the occuring BGC units. The file must:
 
-- be a format readable by [`fiona`](https://github.com/Toblerity/Fiona) (`FileGDB`, `GPKG`, `SHP`, etc)
-- use the BC Albers (`EPSG:3005`) coordinate reference system / projection
-- include this attribute:
+- be a format readable by [`fiona`](https://github.com/Toblerity/Fiona) (`ESRI FileGDB`, `Geopackage`, `ESRI Shapefile`, `GeoJSON`, etc)
+- include a polygon number attribute (both long name and short name are accepted):
 
-        polygon_number      : integer
+        polygon_number | polygonnbr  : integer
+
+All internal files and outputs are in the BC Albers (`EPSG:3005`) coordinate system, the tool will attempt to reproject the input rule polygons to BC Albers if the provided layer uses some other coordinate system.
+
+See [example rule polygon layer](examples/robson/rulepolys.geojson)
 
 ### Elevation file
 
-A table (one of csv/xls/xls formats) with the following columns (in any order, case insensitive):
+A table (one of csv/xls/xls formats) with the following columns (in any order, case insensitive, short names also accepted where noted)
 
 
-    beclabel       : string
-    cool_low       : integer
-    cool_high      : integer
-    neutral_low    : integer
-    neutral_high   : integer
-    warm_low       : integer
-    warm_high      : integer
-    polygon_number : integer
+    beclabel                     : string
+    cool_low                     : integer
+    cool_high                    : integer
+    neutral_low    | neut_low    : integer
+    neutral_high   | neut_high   : integer
+    warm_low                     : integer
+    warm_high                    : integer
+    polygon_number | polygonnbr  : integer
 
-If using an Excel file, the elevation table data must be in the first worksheet, with data originating at Column A, Row 1.
+If using an Excel file, the elevation table data must be in the first worksheet, with header originating at Column A, Row 1 and data originating at Column A, Row 2.
+
+See [example elevation file](examples/robson/elevation.csv)
 
 ### Config file
 
 A text file that defines the parameters for the model run, overriding the defaults.
 
-See sample file [`sample_config.cfg`](sample_config.cfg)
+See example config files:
+
+- [example 1](sample_config.cfg)
+- [example 2](examples/robson/robson.cfg)
 
 
 

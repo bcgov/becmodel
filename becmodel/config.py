@@ -10,6 +10,7 @@ defaultconfig = {
     "out_layer": "becvalue",
     "cell_size_metres": 50,
     "cell_connectivity": 1,
+    "dem_prefilter": False,
     "noise_removal_threshold_ha": 10,
     "high_elevation_removal_threshold_ha": 100,
     "neutral_aspect_slope_threshold_percent": 15,

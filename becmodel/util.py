@@ -53,7 +53,6 @@ def load_tables(config):
     }
     rules_column_remap = {
         "polygonnbr": "polygon_number",
-        "polygondes": "polygon_description",
     }
 
     data = {}
@@ -84,14 +83,12 @@ def load_tables(config):
         data["rulepolys"] = gpd.read_file(
             config["rulepolys_file"], layer=config["rulepolys_layer"]
         )
+        # -- reproject if necessary
+        if data["rulepolys"].crs != {'init': 'EPSG:3005'}:
+            log.info("Input data is not specified as BC Albers, attempting to reproject")
+            data["rulepolys"] = data["rulepolys"].to_crs({'init': 'EPSG:3005'})
         data["rulepolys"].rename(columns=str.lower, inplace=True)
         data["rulepolys"].rename(columns=rules_column_remap, inplace=True)
-        # casting these two columns removes the geoseries designation, just
-        # presume that the provided poygon_number data is integer
-        # data["rulepolys"] = data["rulepolys"].astype(
-        #    {"polygon_number": np.int16, "polygon_description": np.str},
-        #    errors="raise"
-        # )
     except:
         raise DataValueError(
             "Column names or value(s) in input files incorrect. "
