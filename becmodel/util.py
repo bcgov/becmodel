@@ -81,7 +81,12 @@ def load_tables(config):
             config["rulepolys_file"], layer=config["rulepolys_layer"]
         )
         # -- reproject if necessary
-        if data["rulepolys"].crs != {"init": "EPSG:3005"}:
+        if not data["rulepolys"].crs:
+            raise DataValueError(
+                "Input rule polygon projection undefined, define the projection in the input file before running becmodel"
+            )
+
+        elif data["rulepolys"].crs and data["rulepolys"].crs["init"].upper() !=  "EPSG:3005":
             log.info(
                 "Input data is not specified as BC Albers, attempting to reproject"
             )

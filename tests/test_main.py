@@ -43,7 +43,7 @@ def test_reproject_rule_layer():
     BM.update_config({"rulepolys_file": "tests/data/rulepolys.geojson"})
     BM.update_config({"rulepolys_layer": None})
     BM.load()
-    assert BM.data["rulepolys"].crs == {"init": "EPSG:3005"}
+    assert BM.data["rulepolys"].crs["init"].upper() == "EPSG:3005"
 
 
 def test_invalid_cell_size1():
@@ -119,6 +119,7 @@ def test_run(tmpdir):
     """
     BM = BECModel("tests/test.cfg")
     BM.update_config({"temp_folder": str(tmpdir)})
+    BM.update_config({"out_file": str(os.path.join(tmpdir, "becmodel.gpkg"))})
     BM.load()
     BM.model()
     BM.postfilter()
