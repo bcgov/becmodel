@@ -79,7 +79,6 @@ Create / modify a config file as required and provide the path to the config fil
           --help           Show this message and exit.
 
       $ becmodel tests/test.cfg
-        becmodel.util INFO     Input data is not specified as BC Albers, attempting to reproject
         becmodel.main INFO     Downloading and processing DEM
         becmodel.main INFO     Generating initial becvalue raster
         becmodel.main INFO     Running majority filter
