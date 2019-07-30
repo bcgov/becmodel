@@ -87,7 +87,9 @@ def test_prefilter(tmpdir):
 def test_load_invalid_rulepolys():
     with pytest.raises(DataValueError):
         BM = BECModel(TESTCONFIG)
-        BM.update_config({"rulepolys_file": "tests/data/invalid_data.gdb.zip"}, reload=True)
+        BM.update_config(
+            {"rulepolys_file": "tests/data/invalid_data.gdb.zip"}, reload=True
+        )
 
 
 # elevation and rulepolys polygon_number values are not exact matches
@@ -107,7 +109,7 @@ def test_load_invalid_elevation_bands():
             "neutral_low": [0, 525, 875, 1400],
             "neutral_high": [525, 875, 1400, 10000],
             "warm_low": [0, 525, 875, 1400],
-            "warm_high": [525, 875, 1400, 10000]
+            "warm_high": [525, 875, 1400, 10000],
         }
         BM.data["elevation"] = pd.DataFrame(bad_elevation)
         BM.data["rulepolys"] = pd.DataFrame({"polygon_number": [1]})
