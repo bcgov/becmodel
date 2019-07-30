@@ -5,9 +5,10 @@ import pandas as pd
 
 from becmodel import BECModel
 from becmodel import util
-from becmodel.util import ConfigError, ConfigValueError, DataValueError
+from becmodel.main import ConfigError, ConfigValueError
+from becmodel.util import DataValueError
 
-testconfig = util.load_config("tests/test.cfg")
+TESTCONFIG = "tests/test.cfg"
 
 
 def test_align():
@@ -17,77 +18,72 @@ def test_align():
 
 def test_invalid_config():
     with pytest.raises(ConfigError):
-        util.load_config("tests/test_invalid_config.cfg")
+        BM = BECModel("tests/test_invalid_config.cfg")
 
 
 def test_valid_config():
-    config = util.load_config("tests/test.cfg")
-    assert config["rulepolys_file"] == "tests/data/data.gdb.zip"
+    BM = BECModel(TESTCONFIG)
+    assert BM.config["rulepolys_file"] == "tests/data/data.gdb.zip"
 
 
 def test_config_data_missing():
     with pytest.raises(ConfigValueError):
-        testconfig["rulepolys_file"] = "nodata.gdb"
-        util.validate_config(testconfig)
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"rulepolys_file": "nodata.gdb"})
 
 
 def test_invalid_rule_layer():
     with pytest.raises(ConfigValueError):
-        testconfig["rulepolys_layer"] = "nodata"
-        util.validate_config(testconfig)
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"rulepolys_layer": "nodata"})
 
 
 def test_invalid_cell_size1():
     with pytest.raises(ConfigValueError):
-        testconfig["cell_size"] = 110
-        util.validate_config(testconfig)
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"cell_size_metres": 110})
 
 
 def test_invalid_cell_size2():
     with pytest.raises(ConfigValueError):
-        testconfig["cell_size"] = 20
-        util.validate_config(testconfig)
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"cell_size_metres": 20})
 
 
 def test_invalid_cell_size3():
     with pytest.raises(ConfigValueError):
-        testconfig["cell_size"] = 26
-        util.validate_config(testconfig)
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"cell_size_metres": 26})
 
 
 def test_load_tables():
-    BM = BECModel("tests/test.cfg")
-    BM.validate()
+    BM = BECModel(TESTCONFIG)
     assert BM.data["elevation"].beclabel[0] == "MS  xk 1"
 
 
 def test_load_excel():
-    BM = BECModel("tests/test.cfg")
+    BM = BECModel(TESTCONFIG)
     BM.update_config({"elevation": "tests/data/elevation.xlsx"})
-    BM.validate()
     assert BM.data["elevation"].beclabel[0] == "MS  xk 1"
 
 
 # invalid types in rule polys
 def test_load_invalid_rulepolys():
     with pytest.raises(DataValueError):
-        BM = BECModel("tests/test.cfg")
-        BM.update_config({"rulepolys_file": "tests/data/invalid_data.gdb.zip"})
-        BM.validate()
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"rulepolys_file": "tests/data/invalid_data.gdb.zip"}, reload=True)
 
 
 # elevation and rulepolys polygon_number values are not exact matches
 def test_load_invalid_elevation():
     with pytest.raises(DataValueError):
-        BM = BECModel("tests/test.cfg")
-        BM.update_config({"elevation": "tests/data/elevation_invalid.csv"})
-        BM.validate()
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"elevation": "tests/data/elevation_invalid.csv"}, reload=True)
 
 
 def test_load_invalid_elevation_bands():
     with pytest.raises(DataValueError):
-        BM = BECModel("tests/test.cfg")
-        BM.validate()
+        BM = BECModel(TESTCONFIG)
         bad_elevation = {
             "polygon_number": [1, 1, 1, 1],
             "cool_low": [0, 530, 875, 1400],

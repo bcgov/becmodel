@@ -1,7 +1,9 @@
+import configparser
 import os
 import logging
 import shutil
 from math import ceil
+import fiona
 import rasterio
 from rasterio import features
 from rasterio.features import shapes
@@ -15,9 +17,18 @@ import bcdata
 
 import becmodel
 from becmodel import util
+from becmodel.config import defaultconfig
 
 
 log = logging.getLogger(__name__)
+
+
+class ConfigError(Exception):
+    """Configuration key error"""
+
+
+class ConfigValueError(Exception):
+    """Configuration value error"""
 
 
 class BECModel(object):
@@ -26,45 +37,84 @@ class BECModel(object):
 
     def __init__(self, config_file=None):
         log.info("Initializing BEC model v{}".format(becmodel.__version__))
-        self.config_file = config_file
-        self.config = util.load_config(self.config_file)
+
+        # load and create local copy of default config
+        self.config = defaultconfig.copy()
+
+        # copy config[temp_folder] value to config[wksp] for brevity
+        self.config["wksp"] = self.config["temp_folder"]
+
+        # load and validate supplied config file
+        if config_file:
+            self.update_config({"config_file": config_file})
+            self.read_config()
+            self.validate_config()
         util.configure_logging(self.config)
 
-    def update_config(self, update_dict):
+        # load inputs & validate
+        self.data = util.load_tables(self.config)
+
+    def read_config(self):
+        """Read provided config file, overwriting default config values
+        """
+        log.info("Loading config from file: %s", self.config["config_file"])
+        cfg = configparser.ConfigParser()
+        cfg.read(self.config["config_file"])
+        cfg_dict = dict(cfg["CONFIG"])
+
+        for key in cfg_dict:
+            if key not in self.config.keys():
+                raise ConfigError("Config key {} is invalid".format(key))
+            self.config[key] = cfg_dict[key]
+
+        # convert int config values to int
+        for key in [
+            "cell_size_metres",
+            "high_elevation_removal_threshold_ha",
+            "noise_removal_threshold_ha",
+            "expand_bounds_metres",
+        ]:
+            self.config[key] = int(self.config[key])
+
+    def validate_config(self):
+        """Validate provided config
+        """
+        # validate that required paths exist
+        for key in ["rulepolys_file", "elevation"]:
+            if not os.path.exists(self.config[key]):
+                raise ConfigValueError(
+                    "config {}: {} does not exist".format(key, self.config[key])
+                )
+
+        # validate rule polygon layer exists
+        if self.config["rulepolys_layer"] not in fiona.listlayers(self.config["rulepolys_file"]):
+            raise ConfigValueError(
+                "config {}: {} does not exist in {}".format(
+                    key, self.config["rulepolys_layer"], self.config["rulepolys_file"]
+                )
+            )
+        # for alignment to work, cell size must be <= 100m
+        if (
+            self.config["cell_size_metres"] < 25
+            or self.config["cell_size_metres"] > 100
+            or self.config["cell_size_metres"] % 5 != 0
+        ):
+            raise ConfigValueError(
+                "cell size {} invalid - must be a multiple of 5 from 25-100".format(
+                    str(self.config["cell_size_metres"])
+                )
+            )
+
+    def update_config(self, update_dict, reload=False):
+        """Update config dictionary, reloading source data if specified
+        """
         self.config.update(update_dict)
         # set config temp_folder to wksp for brevity
         if "temp_folder" in update_dict.keys():
             self.config["wksp"] = update_dict["temp_folder"]
-
-    def validate(self):
-        self.data = util.load_tables(self.config)
-        # arbitrarily assign grid raster values based on list of beclabels
-        self.becvalue_lookup = {
-            v: i
-            for i, v in enumerate(
-                list(self.data["elevation"].beclabel.unique()), start=1
-            )
-        }
-        # create a reverse lookup
-        self.beclabel_lookup = {
-            value: key for key, value in self.becvalue_lookup.items()
-        }
-        # add zeros to reverse lookup
-        self.beclabel_lookup[0] = None
-
-        # convert slope dependent filter sizes from m to cells
-        self.filtersize_low = ceil(
-            (
-                self.config["majority_filter_size_slope_low_metres"]
-                / self.config["cell_size_metres"]
-            )
-        )
-        self.filtersize_steep = ceil(
-            (
-                self.config["majority_filter_size_slope_steep_metres"]
-                / self.config["cell_size_metres"]
-            )
-        )
+        self.validate_config()
+        if reload:
+            self.data = util.load_tables(self.config)
 
     @property
     def high_elevation_merges(self):
@@ -220,11 +270,37 @@ class BECModel(object):
     def load(self, overwrite=False):
         """ Load input data, do all model calculations and filters
         """
-        self.validate()
-
         # shortcuts
         config = self.config
         data = self.data
+
+        # arbitrarily assign grid raster values based on list of beclabels
+        self.becvalue_lookup = {
+            v: i
+            for i, v in enumerate(
+                list(data["elevation"].beclabel.unique()), start=1
+            )
+        }
+        # create a reverse lookup
+        self.beclabel_lookup = {
+            value: key for key, value in self.becvalue_lookup.items()
+        }
+        # add zeros to reverse lookup
+        self.beclabel_lookup[0] = None
+
+        # convert slope dependent filter sizes from m to cells
+        self.filtersize_low = ceil(
+            (
+                config["majority_filter_size_slope_low_metres"]
+                / config["cell_size_metres"]
+            )
+        )
+        self.filtersize_steep = ceil(
+            (
+                config["majority_filter_size_slope_steep_metres"]
+                / config["cell_size_metres"]
+            )
+        )
 
         log.info("Downloading and processing DEM")
 

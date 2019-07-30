@@ -11,7 +11,6 @@ from becmodel import BECModel
 def cli(config_file, overwrite, qa, validate):
     BM = BECModel(config_file)
     if validate:
-        BM.validate()
         click.echo("becmodel: data validation successful")
     else:
         BM.load(overwrite=overwrite)

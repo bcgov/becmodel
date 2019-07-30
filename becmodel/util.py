@@ -1,4 +1,4 @@
-import configparser
+
 from math import trunc
 import os
 from pathlib import Path
@@ -9,19 +9,9 @@ import logging.handlers
 import pandas as pd
 import numpy as np
 import geopandas as gpd
-import fiona
 
-from becmodel.config import defaultconfig
 
 log = logging.getLogger(__name__)
-
-
-class ConfigError(Exception):
-    """Configuration key error"""
-
-
-class ConfigValueError(Exception):
-    """Configuration value error"""
 
 
 class DataValueError(Exception):
@@ -47,66 +37,6 @@ def align(bounds):
     ll = [((trunc(b / 100) * 100) - 12.5) for b in bounds[:2]]
     ur = [(((trunc(b / 100) + 1) * 100) + 87.5) for b in bounds[2:]]
     return (ll[0], ll[1], ur[0], ur[1])
-
-
-def load_config(config_file):
-    """Read provided config file, overwriting default config values
-    """
-    config = defaultconfig
-
-    # set config temp_folder to wksp for brevity
-    config["wksp"] = config["temp_folder"]
-
-    if config_file:
-        log.info("Loading config from file: %s", config_file)
-        cfg = configparser.ConfigParser()
-        cfg.read(config_file)
-        cfg_dict = dict(cfg["CONFIG"])
-
-        for key in cfg_dict:
-            if key not in config.keys():
-                raise ConfigError("Config key {} is invalid".format(key))
-            config[key] = cfg_dict[key]
-
-        # convert int config values to int
-        for key in [
-            "cell_size_metres",
-            "high_elevation_removal_threshold_ha",
-            "noise_removal_threshold_ha",
-            "expand_bounds_metres",
-        ]:
-            config[key] = int(config[key])
-
-    validate_config(config)
-    return config
-
-
-def validate_config(config):
-    # validate that required paths exist
-    for key in ["rulepolys_file", "elevation"]:
-        if not os.path.exists(config[key]):
-            raise ConfigValueError(
-                "config {}: {} does not exist".format(key, config[key])
-            )
-
-    # validate rule polygon layer exists
-    if config["rulepolys_layer"] not in fiona.listlayers(config["rulepolys_file"]):
-        raise ConfigValueError(
-            "config {}: {} does not exist in {}".format(
-                key, config["rulepolys_layer"], config["rulepolys_file"]
-            )
-        )
-    # for alignment to work, cell size must be <= 100m
-    if (
-        config["cell_size_metres"] < 25
-        or config["cell_size_metres"] > 100
-        or config["cell_size_metres"] % 5 != 0
-    ):
-        raise ConfigValueError(
-            "cell size {} invalid - must be a multiple of 5 from 25-100".format(
-                str(config["cell_size_metres"])
-            )
-        )
 
 
 def load_tables(config):
