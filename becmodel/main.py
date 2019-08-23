@@ -73,6 +73,10 @@ class BECModel(object):
             "high_elevation_removal_threshold_ha",
             "noise_removal_threshold_ha",
             "expand_bounds_metres",
+            "neutral_aspect_slope_threshold_percent",
+            "majority_filter_steep_slope_threshold_percent",
+            "majority_filter_size_slope_low_metres",
+            "majority_filter_size_slope_steep_metres",
         ]:
             self.config[key] = int(self.config[key])
         self.config["config_file"] = config_file
