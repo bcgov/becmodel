@@ -69,10 +69,19 @@ class BECModel(object):
 
         # convert int config values to int
         for key in [
-            "cell_size_metres",
-            "high_elevation_removal_threshold_ha",
-            "noise_removal_threshold_ha",
-            "expand_bounds_metres",
+                "cell_size_metres",
+                "cell_connectivity",
+                "noise_removal_threshold_ha",
+                "high_elevation_removal_threshold_ha",
+                "aspect_neutral_slope_threshold_percent",
+                "aspect_midpoint_cool_degrees",
+                "aspect_midpoint_neutral_1_degrees",
+                "aspect_midpoint_warm_degrees",
+                "aspect_midpoint_neutral_2_degrees",
+                "majority_filter_steep_slope_threshold_percent",
+                "majority_filter_size_slope_low_metres",
+                "majority_filter_size_slope_steep_metres",
+                "expand_bounds_metres"
         ]:
             self.config[key] = int(self.config[key])
         self.config["config_file"] = config_file
@@ -90,7 +99,7 @@ class BECModel(object):
             self.data = util.load_tables(self.config)
 
     def validate_config(self):
-        """Validate provided config
+        """Validate provided config and add aspect temp zone definitions
         """
         # validate that required paths exist
         for key in ["rulepolys_file", "elevation"]:
@@ -123,6 +132,24 @@ class BECModel(object):
         for key in self.config:
             if self.config[key] in ["True", "False"]:
                 self.config[key] = self.config[key] == "True"
+
+        # define aspect zone codes and positions (1=cool, 2=neutral, 3=warm)
+        self.aspect_zone_codes = [1, 2, 3, 2, 1]
+
+        # load configured aspect temp zone aspect midpoint values, creating a
+        # a ordered list defining aspect value of midpoint of each zone.
+        # [cool, neutral_1, warm, neutral_2, cool]
+        self.aspect_zone_midpoints = [
+            self.config["aspect_midpoint_cool_degrees"],
+            self.config["aspect_midpoint_neutral_1_degrees"],
+            self.config["aspect_midpoint_warm_degrees"],
+            self.config["aspect_midpoint_neutral_2_degrees"],
+            self.config["aspect_midpoint_cool_degrees"],
+        ]
+
+        # Now we can create another list holding the differences (in degrees
+        # aspect) between each zone
+        self.aspect_zone_differences = list(np.mod(np.diff(np.array(self.aspect_zone_midpoints)), 360))
 
     @property
     def high_elevation_merges(self):
@@ -385,18 +412,11 @@ class BECModel(object):
         with rasterio.open(os.path.join(config["wksp"], "aspect.tif")) as src:
             data["aspect"] = src.read(1).astype(np.uint16)
 
-        # set aspect to 999 for all slopes less that 15%
+        # for all slopes less that 15%,
+        # set aspect to midpoint of neutral aspect 1
         data["aspect"][
-            data["slope"] < config["neutral_aspect_slope_threshold_percent"]
-        ] = 999
-
-        # classify aspect
-        data["01_aspectclass"] = np.zeros(shape=self.shape, dtype="uint16")
-        for aspect in config["aspects"]:
-            for rng in aspect["ranges"]:
-                data["01_aspectclass"][
-                    (data["aspect"] >= rng["min"]) & (data["aspect"] < rng["max"])
-                ] = aspect["code"]
+            data["slope"] < config["aspect_neutral_slope_threshold_percent"]
+        ] = config["aspect_midpoint_neutral_1_degrees"]
 
         # ----------------------------------------------------------------
         # rule polygons to raster
@@ -426,15 +446,50 @@ class BECModel(object):
         # shortcut
         data = self.data
 
+        # Create the initial bec model
+        # We assign beclabels based on elevation / aspect / rule polygon.
+        # Elevations in the source elevation table are stretched across
+        # the aspect temperature zones (cool/neutral/warm/neutral/cool) in
+        # an effort to smooth out transitions values between aspects
         data["04_becinit"] = np.zeros(shape=self.shape, dtype="uint16")
+        # iterate through rows in elevation table
         for index, row in data["elevation"].iterrows():
-            for aspect in self.config["aspects"]:
-                data["04_becinit"][
-                    (data["03_ruleimg"] == row["polygon_number"])
-                    & (data["01_aspectclass"] == aspect["code"])
-                    & (data["dem"] >= row[aspect["name"] + "_low"])
-                    & (data["dem"] < row[aspect["name"] + "_high"])
-                ] = self.becvalue_lookup[row["beclabel"]]
+            # extract the low/high elevation values for each aspect temp zone
+            cool = (row["cool_low"], row["cool_high"])
+            neutral = (row["neutral_low"], row["neutral_high"])
+            warm = (row["warm_low"], row["warm_high"])
+
+            # define the four transitions, and iterate through them in
+            # clockwise direction
+            for i, transition in enumerate(
+                [(cool, neutral), (neutral, warm), (warm, neutral), (neutral, cool)]
+            ):
+                # calculate elevation step size (m) per degree
+                low_elev_step_size = (
+                    transition[1][0] - transition[0][0]
+                ) / self.aspect_zone_differences[i]
+
+                high_elev_step_size = (
+                    transition[1][1] - transition[0][1]
+                ) / self.aspect_zone_differences[i]
+
+                # make 10 degree steps through each transition, essentially
+                # classifying aspect in 10 degree steps
+                for step in range(0, self.aspect_zone_differences[i], 10):
+                    aspect_min = ((self.aspect_zone_midpoints[i] + step) - 5) % 360
+                    aspect_max = ((self.aspect_zone_midpoints[i] + step) + 5) % 360
+                    elev_min = (transition[0][0] + int(round((step * low_elev_step_size))))
+                    elev_max = (transition[0][1] + int(round((step * high_elev_step_size))))
+                    # assign becvalues based on rule & min/max elev/aspect
+                    data["04_becinit"][
+                        (data["03_ruleimg"] == row["polygon_number"])
+                        & (data["aspect"] >= aspect_min)
+                        & (data["aspect"] < aspect_max)
+                        & (data["dem"] >= elev_min)
+                        & (data["dem"] < elev_max)
+                    ] = self.becvalue_lookup[row["beclabel"]]
+
+                    # for slope values of
         self.data = data
 
     def postfilter(self):
@@ -654,7 +709,6 @@ class BECModel(object):
 
             if qa:
                 for raster in [
-                    "01_aspectclass",
                     "03_ruleimg",
                     "04_becinit",
                     "05_majority",
