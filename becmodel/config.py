@@ -14,13 +14,10 @@ defaultconfig = {
     "noise_removal_threshold_ha": 10,
     "high_elevation_removal_threshold_ha": 100,
     "aspect_neutral_slope_threshold_percent": 15,
-
-    # assign midpoints of aspect temp zones, must be a multiple of 10
     "aspect_midpoint_cool_degrees": 0,
-    "aspect_midpoint_neutral_1_degrees": 90,
+    "aspect_midpoint_neutral_east_degrees": 90,
     "aspect_midpoint_warm_degrees": 200,
-    "aspect_midpoint_neutral_2_degrees": 290,
-
+    "aspect_midpoint_neutral_west_degrees": 290,
     "majority_filter_steep_slope_threshold_percent": 25,
     "majority_filter_size_slope_low_metres": 250,
     "majority_filter_size_slope_steep_metres": 150,
@@ -37,5 +34,4 @@ defaultconfig = {
     "high_elevation_removal_threshold_alpine": ["AT", "BAFA", "CMA", "IMA"],
     "high_elevation_removal_threshold_parkland": ["p", "s"],
     "high_elevation_removal_threshold_woodland": ["w"],
-
 }

@@ -69,19 +69,19 @@ class BECModel(object):
 
         # convert int config values to int
         for key in [
-                "cell_size_metres",
-                "cell_connectivity",
-                "noise_removal_threshold_ha",
-                "high_elevation_removal_threshold_ha",
-                "aspect_neutral_slope_threshold_percent",
-                "aspect_midpoint_cool_degrees",
-                "aspect_midpoint_neutral_1_degrees",
-                "aspect_midpoint_warm_degrees",
-                "aspect_midpoint_neutral_2_degrees",
-                "majority_filter_steep_slope_threshold_percent",
-                "majority_filter_size_slope_low_metres",
-                "majority_filter_size_slope_steep_metres",
-                "expand_bounds_metres"
+            "cell_size_metres",
+            "cell_connectivity",
+            "noise_removal_threshold_ha",
+            "high_elevation_removal_threshold_ha",
+            "aspect_neutral_slope_threshold_percent",
+            "aspect_midpoint_cool_degrees",
+            "aspect_midpoint_neutral_east_degrees",
+            "aspect_midpoint_warm_degrees",
+            "aspect_midpoint_neutral_west_degrees",
+            "majority_filter_steep_slope_threshold_percent",
+            "majority_filter_size_slope_low_metres",
+            "majority_filter_size_slope_steep_metres",
+            "expand_bounds_metres",
         ]:
             self.config[key] = int(self.config[key])
         self.config["config_file"] = config_file
@@ -138,18 +138,20 @@ class BECModel(object):
 
         # load configured aspect temp zone aspect midpoint values, creating a
         # a ordered list defining aspect value of midpoint of each zone.
-        # [cool, neutral_1, warm, neutral_2, cool]
+        # [cool, neutral_east, warm, neutral_west, cool]
         self.aspect_zone_midpoints = [
             self.config["aspect_midpoint_cool_degrees"],
-            self.config["aspect_midpoint_neutral_1_degrees"],
+            self.config["aspect_midpoint_neutral_east_degrees"],
             self.config["aspect_midpoint_warm_degrees"],
-            self.config["aspect_midpoint_neutral_2_degrees"],
+            self.config["aspect_midpoint_neutral_west_degrees"],
             self.config["aspect_midpoint_cool_degrees"],
         ]
 
         # Now we can create another list holding the differences (in degrees
         # aspect) between each zone
-        self.aspect_zone_differences = list(np.mod(np.diff(np.array(self.aspect_zone_midpoints)), 360))
+        self.aspect_zone_differences = list(
+            np.mod(np.diff(np.array(self.aspect_zone_midpoints)), 360)
+        )
 
     @property
     def high_elevation_merges(self):
@@ -412,11 +414,11 @@ class BECModel(object):
         with rasterio.open(os.path.join(config["wksp"], "aspect.tif")) as src:
             data["aspect"] = src.read(1).astype(np.uint16)
 
-        # for all slopes less that 15%,
-        # set aspect to midpoint of neutral aspect 1
+        # We consider slopes less that 15% to be neutral.
+        # Set aspect to aspect_midpoint_neutral_east (ie, typically 90 degrees)
         data["aspect"][
             data["slope"] < config["aspect_neutral_slope_threshold_percent"]
-        ] = config["aspect_midpoint_neutral_1_degrees"]
+        ] = config["aspect_midpoint_neutral_east_degrees"]
 
         # ----------------------------------------------------------------
         # rule polygons to raster
@@ -437,10 +439,11 @@ class BECModel(object):
 
     def model(self):
         """
-        Generate initial becvalue raster
+        Generate initial becvalue raster.
+
         Create the raster by iterating through elevation table,
         setting output raster to becvalue for each row where criteria are met
-        by the dem/aspect/rulepolys
+        by the dem/aspect/rulepolys.
         """
         log.info("Generating initial becvalue raster")
         # shortcut
@@ -478,8 +481,25 @@ class BECModel(object):
                 for step in range(0, self.aspect_zone_differences[i], 10):
                     aspect_min = ((self.aspect_zone_midpoints[i] + step) - 5) % 360
                     aspect_max = ((self.aspect_zone_midpoints[i] + step) + 5) % 360
-                    elev_min = (transition[0][0] + int(round((step * low_elev_step_size))))
-                    elev_max = (transition[0][1] + int(round((step * high_elev_step_size))))
+                    elev_min = transition[0][0] + int(
+                        round((step * low_elev_step_size))
+                    )
+                    elev_max = transition[0][1] + int(
+                        round((step * high_elev_step_size))
+                    )
+
+                    # for any aspect classes where min > max (they span 0),
+                    # do the < 360/0 part as a separate first step
+                    if aspect_min > aspect_max:
+                        data["04_becinit"][
+                            (data["03_ruleimg"] == row["polygon_number"])
+                            & (data["aspect"] >= aspect_min)
+                            & (data["dem"] >= elev_min)
+                            & (data["dem"] < elev_max)
+                        ] = self.becvalue_lookup[row["beclabel"]]
+                        # now start at zero
+                        aspect_min = 0
+
                     # assign becvalues based on rule & min/max elev/aspect
                     data["04_becinit"][
                         (data["03_ruleimg"] == row["polygon_number"])
@@ -489,7 +509,6 @@ class BECModel(object):
                         & (data["dem"] < elev_max)
                     ] = self.becvalue_lookup[row["beclabel"]]
 
-                    # for slope values of
         self.data = data
 
     def postfilter(self):
