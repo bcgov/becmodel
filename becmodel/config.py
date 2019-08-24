@@ -13,7 +13,11 @@ defaultconfig = {
     "dem_prefilter": False,
     "noise_removal_threshold_ha": 10,
     "high_elevation_removal_threshold_ha": 100,
-    "neutral_aspect_slope_threshold_percent": 15,
+    "aspect_neutral_slope_threshold_percent": 15,
+    "aspect_midpoint_cool_degrees": 0,
+    "aspect_midpoint_neutral_east_degrees": 90,
+    "aspect_midpoint_warm_degrees": 200,
+    "aspect_midpoint_neutral_west_degrees": 290,
     "majority_filter_steep_slope_threshold_percent": 25,
     "majority_filter_size_slope_low_metres": 250,
     "majority_filter_size_slope_steep_metres": 150,
@@ -30,24 +34,4 @@ defaultconfig = {
     "high_elevation_removal_threshold_alpine": ["AT", "BAFA", "CMA", "IMA"],
     "high_elevation_removal_threshold_parkland": ["p", "s"],
     "high_elevation_removal_threshold_woodland": ["w"],
-    # define aspects as list of dicts
-    # each aspect has a 'code' and a list of valid ranges as degrees azimuth
-    # (0-361, an extra degree to ensure full coverage)
-    "aspects": [
-        {
-            "name": "cool",
-            "code": 100,
-            "ranges": [{"min": 0, "max": 45}, {"min": 315, "max": 361}],
-        },
-        {
-            "name": "neutral",
-            "code": 200,
-            "ranges": [
-                {"min": 45, "max": 135},
-                {"min": 270, "max": 315},
-                {"min": 999, "max": 1000},  # 999 for flat areas
-            ],
-        },
-        {"name": "warm", "code": 300, "ranges": [{"min": 135, "max": 270}]},
-    ],
 }
