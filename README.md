@@ -7,22 +7,29 @@ The Large Scale Biogeoclimatic Ecosystem Classification Process generates biogeo
 
 ## Installation
 
-Installation is easiest with conda, see the [guide](doc/conda_guide.md). (Note that you can use the built in conda [Python Package Manager](https://pro.arcgis.com/en/pro-app/arcpy/get-started/what-is-conda.htm) if you have ArcGIS Pro installed and are not on a shared system.)
+Installation is generally easiest with conda.  See [this guide](doc/fresh_install_gts.md) for how to install on a GTS Windows server.
 
-Alternatively, install via `pip install` if:
+Alternatively, install with `pip` if you are comfortable with managing your Python environment yourself. Installation to a virtual environment will be something like this (`v0.16dev` of `scikit-image` is required, we require unreleased features)
 
-- Python and `pip` are already installed
-- you are comfortable with managing your Python environment
-- if using Windows, you have [manually downloaded and installed the correct pre-compiled gdal/fiona/rasterio wheels](https://www.lfd.uci.edu/~gohlke/pythonlibs/#gdal)
-- a C++ compiler is available (required to install `scikit-image` from master branch, we need unreleased features)
-- install in this order so that `scikit-image` finds `numpy` and `cython`:
+        virtualenv becmodelvenv
+        source becmodelven/bin/activate
+        git clone https://github.com/scikit-image/scikit-image.git
+        cd scikit-image
+        pip install .
+        cd ..
+        git clone https://github.com/smnorris/becmodel.git
+        cd becmodel
+        pip install .
 
-        pip install numpy
-        pip install cython
-        pip install -r requirements.txt
+Note that if you are using Windows (and not conda), you will need to:
+
+- manually download and install the correct pre-compiled wheels for [`gdal`, `fiona` and `rasterio`](https://www.lfd.uci.edu/~gohlke/pythonlibs/#gdal)
+- have a C++ compiler available
 
 
-## Required files
+## Usage
+
+Before running the script, prepare the required files listed below:
 
 ### 1. Rule polygons
 
@@ -39,7 +46,7 @@ See [example rule polygon layer](examples/robson/rulepolys.geojson)
 
 ### 2. Elevation table
 
-A table (one of csv/xls/xls formats) with the following columns (in any order, case insensitive, short names also accepted where noted)
+A table (one of csv/xls/xlsx formats) with the following columns (in any order, case insensitive, short names also accepted where noted)
 
 
     beclabel                     : string
@@ -57,7 +64,7 @@ See [example elevation file](examples/robson/elevation.csv)
 
 ### 3. Configuration / initialization file
 
-A text [initialization file](https://docs.python.org/3/library/configparser.html#supported-ini-file-structure) that defines the parameters for the model run, overriding the defaults. The file must include the `[CONFIG]` section header. The file may have any file name or extension - file extensions `ini`, `cfg`, `txt` are all valid. The `becmodel` command described below requires a configuration file, to use all default parameters leave the file empty after the `[CONFIG]` header.
+A text [initialization file](https://docs.python.org/3/library/configparser.html#supported-ini-file-structure) that defines the parameters for the model run, overriding the defaults. The file must include the `[CONFIG]` section header. The file may have any file name or extension - file extensions `ini`, `cfg`, `txt` are all valid.
 
 See example config files:
 
@@ -65,30 +72,43 @@ See example config files:
 - [Example 2 - project specific](examples/robson/robson.cfg)
 
 
-## Usage
+###  Running the model
 
-Create / modify a config file as required and provide the path to the config file as an argument to the script:
+On GTS, open a `Python Command Prompt` window and activate the `becenv` conda environment:
 
-      $ becmodel --help
-        Usage: becmodel [OPTIONS] [CONFIG_FILE]
+    (arcgispro-py3)> activate W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\becmodel\becenv
 
-        Options:
-          -v, --validate
-          -o, --overwrite
-          -qa, --qa
-          --help           Show this message and exit.
+Consider navigating to your project folder, eg:
 
-      $ becmodel tests/test.cfg
-        becmodel.main INFO     Downloading and processing DEM
-        becmodel.main INFO     Generating initial becvalue raster
-        becmodel.main INFO     Running majority filter
-        becmodel.main INFO     Running noise removal filter
-        becmodel.main INFO     Running morphology.area_closing() to clean results of noise filter
-        becmodel.main INFO     Running high_elevation_removal_threshold on alpine
-        becmodel.main INFO     Running high_elevation_removal_threshold on parkland
-        becmodel.main INFO     Running high_elevation_removal_threshold on woodland
-        becmodel.main INFO     Running majority filter again to tidy edges
-        becmodel.main INFO     Running noise filter again to clean results of majority filter
-        becmodel.main INFO     Output becmodel.gpkg created
+        (becenv)> W:
+        (becenv)> cd W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019
 
-Temporary files (`dem.tif`, `aspect.tif` etc) are written to the folder `tempdata` or as specified by the `temp_folder` key in the config file.
+Finally, run the `becmodel` script with the path to your config file as an argument to the script:
+
+
+    $ becmodel tests/test.cfg
+    becmodel.main INFO     Downloading and processing DEM
+    becmodel.main INFO     Generating initial becvalue raster
+    becmodel.main INFO     Running majority filter
+    becmodel.main INFO     Running noise removal filter
+    becmodel.main INFO     Running morphology.area_closing() to clean results of noise filter
+    becmodel.main INFO     Running high_elevation_removal_threshold on alpine
+    becmodel.main INFO     Running high_elevation_removal_threshold on parkland
+    becmodel.main INFO     Running high_elevation_removal_threshold on woodland
+    becmodel.main INFO     Running majority filter again to tidy edges
+    becmodel.main INFO     Running noise filter again to clean results of majority filter
+    becmodel.main INFO     Output becmodel.gpkg created
+
+Temporary files (`dem.tif`, `aspect.tif` etc) are written to the folder `tempdata`,
+or as specified by the `temp_folder` key in the config file.
+
+The script includes several options:
+
+    $ becmodel --help
+    Usage: becmodel [OPTIONS] [CONFIG_FILE]
+
+    Options:
+      -v, --validate   Validate inputs - do not run model
+      -o, --overwrite  Overwrite existing outputs
+      -qa, --qa        Write temp files to disk for QA
+      --help           Show this message and exit.

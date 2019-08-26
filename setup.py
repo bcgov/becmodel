@@ -21,6 +21,7 @@ requires = [
     'fiona',
     'gdal',
     'geopandas',
+    'geojson',
     'numpy',
     'pandas',
     'rasterio',
