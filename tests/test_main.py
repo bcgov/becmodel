@@ -121,11 +121,11 @@ def test_run(tmpdir):
     """
     BM = BECModel("tests/test.cfg")
     BM.update_config({"temp_folder": str(tmpdir)})
-    BM.update_config({"out_file": str(os.path.join(tmpdir, "becmodel.gpkg"))})
+    BM.update_config({"out_file": str(os.path.join(tmpdir, "bectest.gpkg"))})
     BM.load()
     BM.model()
     BM.postfilter()
     BM.write()
     assert os.path.exists(tmpdir.join("dem.tif"))
     assert os.path.exists(tmpdir.join("aspect.tif"))
-    assert os.path.exists(tmpdir.join("becmodel.gpkg"))
+    assert os.path.exists(tmpdir.join("bectest.gpkg"))
