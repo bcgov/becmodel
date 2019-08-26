@@ -82,7 +82,7 @@ class BECModel(object):
             "majority_filter_size_slope_low_metres",
             "majority_filter_size_slope_steep_metres",
             "expand_bounds_metres",
-            "neutral_aspect_slope_threshold_percent",
+            "aspect_neutral_slope_threshold_percent",
             "majority_filter_steep_slope_threshold_percent",
             "majority_filter_size_slope_low_metres",
             "majority_filter_size_slope_steep_metres",
