@@ -81,12 +81,12 @@ On GTS, open a `Python Command Prompt` window and activate the `becenv` conda en
 Consider navigating to your project folder, eg:
 
         (becenv)> W:
-        (becenv)> cd W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019
+        (becenv)> cd W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\becmodel
 
 Finally, run the `becmodel` script with the path to your config file as an argument to the script:
 
 
-    $ becmodel tests/test.cfg
+    (becenv)> becmodel tests/test.cfg
     becmodel.main INFO     Downloading and processing DEM
     becmodel.main INFO     Generating initial becvalue raster
     becmodel.main INFO     Running majority filter
@@ -97,14 +97,14 @@ Finally, run the `becmodel` script with the path to your config file as an argum
     becmodel.main INFO     Running high_elevation_removal_threshold on woodland
     becmodel.main INFO     Running majority filter again to tidy edges
     becmodel.main INFO     Running noise filter again to clean results of majority filter
-    becmodel.main INFO     Output becmodel.gpkg created
+    becmodel.main INFO     Output bectest.gpkg created
 
 Temporary files (`dem.tif`, `aspect.tif` etc) are written to the folder `tempdata`,
 or as specified by the `temp_folder` key in the config file.
 
 The script includes several options:
 
-    $ becmodel --help
+    (becenv)> becmodel --help
     Usage: becmodel [OPTIONS] [CONFIG_FILE]
 
     Options:
