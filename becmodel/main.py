@@ -721,6 +721,9 @@ class BECModel(object):
             self.beclabel_lookup
         )
 
+        # set crs
+        data["becvalue_polys"].crs = {'init': 'epsg:3005'}
+
         self.data = data
 
     def write(self, qa=False):
