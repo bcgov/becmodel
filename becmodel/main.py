@@ -591,17 +591,19 @@ class BECModel(object):
         # ----------------------------------------------------------------
         log.info("Running morphology.area_closing() to clean results of noise filter")
         data["07_areaclosing"] = data["06_noise"].copy()
-        for rule_poly in data["rulepolys"].polygon_number.tolist():
-            # extract image area within the rule poly
-            X = np.where(data["03_ruleimg"] == rule_poly, data["06_noise"], 100)
-            Y = morphology.area_closing(
-                X, noise_threshold, connectivity=config["cell_connectivity"]
-            )
-            data["07_areaclosing"] = np.where(
-                (data["03_ruleimg"] == rule_poly) & (data["06_noise"] == 0),
-                Y,
-                data["07_areaclosing"],
-            )
+        rule_poly_iter = data["rulepolys"].polygon_number.tolist()
+        with click.progressbar(rule_poly_iter) as bar:
+            for rule_poly in bar:
+                # extract image area within the rule poly
+                X = np.where(data["03_ruleimg"] == rule_poly, data["06_noise"], 100)
+                Y = morphology.area_closing(
+                    X, noise_threshold, connectivity=config["cell_connectivity"]
+                )
+                data["07_areaclosing"] = np.where(
+                    (data["03_ruleimg"] == rule_poly) & (data["06_noise"] == 0),
+                    Y,
+                    data["07_areaclosing"],
+                )
 
         # ----------------------------------------------------------------
         # Noise Removal 3 - highelevfilter
