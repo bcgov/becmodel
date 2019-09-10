@@ -13,6 +13,7 @@ import geopandas as gpd
 from geojson import Feature, FeatureCollection
 from skimage.filters.rank import majority, mean
 import skimage.morphology as morphology
+import click
 
 import bcdata
 
@@ -449,7 +450,7 @@ class BECModel(object):
         setting output raster to becvalue for each row where criteria are met
         by the dem/aspect/rulepolys.
         """
-        log.info("Generating initial becvalue raster")
+        log.info("Generating initial becvalue raster:")
         # shortcut
         data = self.data
 
@@ -460,58 +461,59 @@ class BECModel(object):
         # an effort to smooth out transitions values between aspects
         data["04_becinit"] = np.zeros(shape=self.shape, dtype="uint16")
         # iterate through rows in elevation table
-        for index, row in data["elevation"].iterrows():
-            # extract the low/high elevation values for each aspect temp zone
-            cool = (row["cool_low"], row["cool_high"])
-            neutral = (row["neutral_low"], row["neutral_high"])
-            warm = (row["warm_low"], row["warm_high"])
+        elevation_rows = data["elevation"].to_dict("records")
+        with click.progressbar(elevation_rows) as bar:
+            for row in bar:
+                # extract the low/high elevation values for each aspect temp zone
+                cool = (row["cool_low"], row["cool_high"])
+                neutral = (row["neutral_low"], row["neutral_high"])
+                warm = (row["warm_low"], row["warm_high"])
+                # define the four transitions, and iterate through them in
+                # clockwise direction
+                for i, transition in enumerate(
+                    [(cool, neutral), (neutral, warm), (warm, neutral), (neutral, cool)]
+                ):
+                    # calculate elevation step size (m) per degree
+                    low_elev_step_size = (
+                        transition[1][0] - transition[0][0]
+                    ) / self.aspect_zone_differences[i]
 
-            # define the four transitions, and iterate through them in
-            # clockwise direction
-            for i, transition in enumerate(
-                [(cool, neutral), (neutral, warm), (warm, neutral), (neutral, cool)]
-            ):
-                # calculate elevation step size (m) per degree
-                low_elev_step_size = (
-                    transition[1][0] - transition[0][0]
-                ) / self.aspect_zone_differences[i]
+                    high_elev_step_size = (
+                        transition[1][1] - transition[0][1]
+                    ) / self.aspect_zone_differences[i]
 
-                high_elev_step_size = (
-                    transition[1][1] - transition[0][1]
-                ) / self.aspect_zone_differences[i]
+                    # make 10 degree steps through each transition, essentially
+                    # classifying aspect in 10 degree steps
+                    for step in range(0, self.aspect_zone_differences[i], 10):
+                        aspect_min = ((self.aspect_zone_midpoints[i] + step) - 5) % 360
+                        aspect_max = ((self.aspect_zone_midpoints[i] + step) + 5) % 360
+                        elev_min = transition[0][0] + int(
+                            round((step * low_elev_step_size))
+                        )
+                        elev_max = transition[0][1] + int(
+                            round((step * high_elev_step_size))
+                        )
 
-                # make 10 degree steps through each transition, essentially
-                # classifying aspect in 10 degree steps
-                for step in range(0, self.aspect_zone_differences[i], 10):
-                    aspect_min = ((self.aspect_zone_midpoints[i] + step) - 5) % 360
-                    aspect_max = ((self.aspect_zone_midpoints[i] + step) + 5) % 360
-                    elev_min = transition[0][0] + int(
-                        round((step * low_elev_step_size))
-                    )
-                    elev_max = transition[0][1] + int(
-                        round((step * high_elev_step_size))
-                    )
+                        # for any aspect classes where min > max (they span 0),
+                        # do the < 360/0 part as a separate first step
+                        if aspect_min > aspect_max:
+                            data["04_becinit"][
+                                (data["03_ruleimg"] == row["polygon_number"])
+                                & (data["aspect"] >= aspect_min)
+                                & (data["dem"] >= elev_min)
+                                & (data["dem"] < elev_max)
+                            ] = self.becvalue_lookup[row["beclabel"]]
+                            # now start at zero
+                            aspect_min = 0
 
-                    # for any aspect classes where min > max (they span 0),
-                    # do the < 360/0 part as a separate first step
-                    if aspect_min > aspect_max:
+                        # assign becvalues based on rule & min/max elev/aspect
                         data["04_becinit"][
                             (data["03_ruleimg"] == row["polygon_number"])
                             & (data["aspect"] >= aspect_min)
+                            & (data["aspect"] < aspect_max)
                             & (data["dem"] >= elev_min)
                             & (data["dem"] < elev_max)
                         ] = self.becvalue_lookup[row["beclabel"]]
-                        # now start at zero
-                        aspect_min = 0
-
-                    # assign becvalues based on rule & min/max elev/aspect
-                    data["04_becinit"][
-                        (data["03_ruleimg"] == row["polygon_number"])
-                        & (data["aspect"] >= aspect_min)
-                        & (data["aspect"] < aspect_max)
-                        & (data["dem"] >= elev_min)
-                        & (data["dem"] < elev_max)
-                    ] = self.becvalue_lookup[row["beclabel"]]
 
         self.data = data
 
@@ -722,7 +724,7 @@ class BECModel(object):
         )
 
         # set crs
-        data["becvalue_polys"].crs = {'init': 'epsg:3005'}
+        data["becvalue_polys"].crs = {"init": "epsg:3005"}
 
         self.data = data
 
