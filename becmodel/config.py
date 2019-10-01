@@ -22,15 +22,9 @@ defaultconfig = {
     "majority_filter_size_slope_low_metres": 250,
     "majority_filter_size_slope_steep_metres": 150,
     "expand_bounds_metres": 2000,
-    # ----------------------------------------------------------------------
-    # ---- Below are config items that are not configurable via config file.
-    # ---- Changes to these values require changes to this file.
-    # ----------------------------------------------------------------------
-    # define areas to be aggregated/removed via 'parkland_removal_threshold'
-    # Note that alpine comes from first four characters of beclabel
-    # .str[:4]
-    # parkland and woodland come from the seventh character of beclabel
-    # .str[6:7]
+    # Areas to be aggregated/removed via 'high_elevation_removal_threshold'
+    # to find Alpine, match beclabel first four characters
+    # to find Parkland and Woodland, match beclabel seventh character
     "high_elevation_removal_threshold_alpine": ["AT", "BAFA", "CMA", "IMA"],
     "high_elevation_removal_threshold_parkland": ["p", "s"],
     "high_elevation_removal_threshold_woodland": ["w"],

@@ -92,6 +92,14 @@ class BECModel(object):
         self.config["config_file"] = config_file
         self.config["wksp"] = self.config["temp_folder"]
 
+        # convert comma separated strings to lists
+        for key in [
+            "high_elevation_removal_threshold_alpine",
+            "high_elevation_removal_threshold_parkland",
+            "high_elevation_removal_threshold_woodland",
+        ]:
+            self.config[key] = self.config[key].split(",")
+
     def update_config(self, update_dict, reload=False):
         """Update config dictionary, reloading source data if specified
         """
