@@ -609,7 +609,6 @@ class BECModel(object):
             X = np.where(data["05_majority"] == becvalue, 1, 0)
 
             # fill holes, remove small objects
-            # fill holes, remove small objects
             Y = morphology.remove_small_holes(
                 X, noise_threshold, connectivity=config["cell_connectivity"]
             )
@@ -696,22 +695,22 @@ class BECModel(object):
         # kernel would probably be fine but lets use the existing variable
         # size.
         # ----------------------------------------------------------------
-        log.info("Running majority filter again to tidy edges")
-        data["09_majority2"] = np.where(
-            data["slope"] < config["majority_filter_steep_slope_threshold_percent"],
-            majority(
-                data["08_highelev"],
-                morphology.rectangle(
-                    width=self.filtersize_low, height=self.filtersize_low
-                ),
-            ),
-            majority(
-                data["08_highelev"],
-                morphology.rectangle(
-                    width=self.filtersize_steep, height=self.filtersize_steep
-                ),
-            ),
-        )
+        #log.info("Running majority filter again to tidy edges")
+        #data["09_majority2"] = np.where(
+        # data["slope"] < config["majority_filter_steep_slope_threshold_percent"],
+        #             majority(
+        #                 data["08_highelev"],
+        #                 morphology.rectangle(
+        #                     width=self.filtersize_low, height=self.filtersize_low
+        #                 ),
+        #             ),
+        #             majority(
+        #                 data["08_highelev"],
+        #                 morphology.rectangle(
+        #                     width=self.filtersize_steep, height=self.filtersize_steep
+        #                 ),
+        #             ),
+        #         )
 
         # ----------------------------------------------------------------
         # repeat noise filter
@@ -720,14 +719,14 @@ class BECModel(object):
         # ----------------------------------------------------------------
         # initialize the output raster for noise filter
         log.info("Running noise filter again to clean results of majority filter")
-        data["10_noise2"] = data["09_majority2"].copy()
+        data["10_noise2"] = data["08_highelev"].copy()
 
         # loop through all becvalues
         # (first removing the extra zero in the lookup)
         for becvalue in [v for v in self.beclabel_lookup if v != 0]:
 
             # extract given becvalue
-            X = np.where(data["09_majority2"] == becvalue, 1, 0)
+            X = np.where(data["08_highelev"] == becvalue, 1, 0)
 
             # fill holes, remove small objects
             Y = morphology.remove_small_holes(
@@ -775,11 +774,14 @@ class BECModel(object):
             "becvalue_polys"
         ].AREA_HECTARES.round(1)
 
-        # clip to aggregated rule polygons, to create a smooth exterior bnd
+        # clip to aggregated rule polygons
+        # (buffer the dissolved rules in and out to ensure no small holes)
         data["rulepolys"]["rules"] = 1
+        X = data["rulepolys"].dissolve(by="rules").buffer(.01).buffer(-.01)
+        Y = gpd.GeoDataFrame(X).rename(columns={0:'geometry'}).set_geometry('geometry')
         data["becvalue_polys"] = gpd.overlay(
             data["becvalue_polys"],
-            data["rulepolys"].dissolve(by="rules"),
+            Y,
             how="intersection",
         )
 
@@ -806,7 +808,7 @@ class BECModel(object):
                     "06_noise",
                     "07_areaclosing",
                     "08_highelev",
-                    "09_majority2",
+                    #"09_majority2",
                     "10_noise2",
                 ]:
                     with rasterio.open(
