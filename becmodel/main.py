@@ -15,6 +15,7 @@ from geojson import Feature, FeatureCollection
 from skimage.filters.rank import majority, mean
 import skimage.morphology as morphology
 import click
+from scipy import ndimage
 
 import bcdata
 
@@ -446,9 +447,12 @@ class BECModel(object):
         ] = config["aspect_midpoint_neutral_east_degrees"]
 
         # ----------------------------------------------------------------
-        # rule polygons to raster
+        # convert rule polygons to raster, and expand the outer rule bounds
+        # slightly (3 pixels) to allow for later cutting by source linework
+        # (for smooth outer edges in final product)
         # ----------------------------------------------------------------
-        data["03_ruleimg"] = features.rasterize(
+        # load to raster
+        rules = features.rasterize(
             (
                 (geom, value)
                 for geom, value in zip(
@@ -460,6 +464,19 @@ class BECModel(object):
             all_touched=False,
             dtype=np.uint16,
         )
+
+        # create binary inverted rules image to calc distance from
+        # zero values to a rule poly
+        a = np.where(rules == 0, 1, 0)
+
+        # compute the distance (euclidian distance in cell units)
+        # and also return the index of the nearest rule poly
+        # (allowing us to perform 'Euclidean Allocation')
+        b, c = ndimage.distance_transform_edt(a, return_indices=True)
+
+        # extract only the part of the feature transform within 3 cells
+        data["03_ruleimg"] = np.where(b < 3, rules[c[0], c[1]], 0)
+
         self.data = data
 
     def model(self):
@@ -758,6 +775,19 @@ class BECModel(object):
             "becvalue_polys"
         ].AREA_HECTARES.round(1)
 
+        # clip to aggregated rule polygons, to create a smooth exterior bnd
+        data["rulepolys"]["rules"] = 1
+        data["becvalue_polys"] = gpd.overlay(
+            data["becvalue_polys"],
+            data["rulepolys"].dissolve(by="rules"),
+            how="intersection",
+        )
+
+        # remove rulepoly fields
+        data["becvalue_polys"] = data["becvalue_polys"][
+            ["BGC_LABEL", "AREA_HECTARES", "becvalue", "geometry"]
+        ]
+
         self.data = data
 
     def write(self, qa=False):
@@ -792,11 +822,12 @@ class BECModel(object):
                     ) as dst:
                         dst.write(self.data[raster].astype(np.uint16), indexes=1)
 
-        # remove becvaule column, and write output vectors to file
+        # remove becvalue column
         self.data["becvalue_polys"] = self.data["becvalue_polys"].drop(
             columns=["becvalue"]
         )
 
+        # write output vectors to file
         self.data["becvalue_polys"].to_file(
             self.config["out_file"], layer=self.config["out_layer"], driver="GPKG"
         )
