@@ -3,6 +3,7 @@ import os
 import logging
 import shutil
 from math import ceil
+from datetime import datetime
 import fiona
 import rasterio
 from rasterio import features
@@ -40,20 +41,19 @@ class BECModel(object):
     def __init__(self, config_file=None):
         log.info("Initializing BEC model v{}".format(becmodel.__version__))
 
-        # load and create local copy of default config
-        self.config = defaultconfig.copy()
-
-        # copy config[temp_folder] value to config[wksp] for brevity
-        self.config["wksp"] = self.config["temp_folder"]
-
         # load and validate supplied config file
         if config_file:
             self.read_config(config_file)
             self.validate_config()
-        util.configure_logging(self.config)
+        else:
+            self.config = defaultconfig.copy()
 
+        util.configure_logging(self.config)
         # load inputs & validate
         self.data = util.load_tables(self.config)
+
+        # note start time for config log time stamp
+        self.start_time = datetime.now()
 
     def read_config(self, config_file):
         """Read provided config file, overwriting default config values
@@ -61,44 +61,26 @@ class BECModel(object):
         log.info("Loading config from file: %s", config_file)
         cfg = configparser.ConfigParser()
         cfg.read(config_file)
-        cfg_dict = dict(cfg["CONFIG"])
+        self.user_config = dict(cfg["CONFIG"])
 
-        for key in cfg_dict:
-            if key not in self.config.keys():
+        # ensure all keys are valid
+        for key in self.user_config:
+            if key not in defaultconfig.keys():
                 raise ConfigError("Config key {} is invalid".format(key))
-            self.config[key] = cfg_dict[key]
 
-        # convert int config values to int
-        for key in [
-            "cell_size_metres",
-            "cell_connectivity",
-            "noise_removal_threshold_ha",
-            "high_elevation_removal_threshold_ha",
-            "aspect_neutral_slope_threshold_percent",
-            "aspect_midpoint_cool_degrees",
-            "aspect_midpoint_neutral_east_degrees",
-            "aspect_midpoint_warm_degrees",
-            "aspect_midpoint_neutral_west_degrees",
-            "majority_filter_steep_slope_threshold_percent",
-            "majority_filter_size_slope_low_metres",
-            "majority_filter_size_slope_steep_metres",
-            "expand_bounds_metres",
-            "aspect_neutral_slope_threshold_percent",
-            "majority_filter_steep_slope_threshold_percent",
-            "majority_filter_size_slope_low_metres",
-            "majority_filter_size_slope_steep_metres",
-        ]:
-            self.config[key] = int(self.config[key])
-        self.config["config_file"] = config_file
+        # convert configparser strings to int/list where required
+        for key in defaultconfig:
+            if key in self.user_config.keys():
+                if type(defaultconfig[key]) == int:
+                    self.user_config[key] = int(self.user_config[key])
+                elif type(defaultconfig[key]) == list:
+                    self.user_config[key] = self.user_config[key].split(",")
+
+        # create config from default and provided file
+        self.config = {**defaultconfig, **self.user_config}
+
+        # add shortcut to temp folder
         self.config["wksp"] = self.config["temp_folder"]
-
-        # convert comma separated strings to lists
-        for key in [
-            "high_elevation_removal_threshold_alpine",
-            "high_elevation_removal_threshold_parkland",
-            "high_elevation_removal_threshold_woodland",
-        ]:
-            self.config[key] = self.config[key].split(",")
 
     def update_config(self, update_dict, reload=False):
         """Update config dictionary, reloading source data if specified
@@ -165,6 +147,36 @@ class BECModel(object):
         self.aspect_zone_differences = list(
             np.mod(np.diff(np.array(self.aspect_zone_midpoints)), 360)
         )
+
+    def write_config_log(self):
+        """dump configs to file"""
+        configlog = configparser.ConfigParser()
+        configlog["1_VERSION"] = {"becmodel_version": becmodel.__version__}
+
+        configlog["2_USER"] = {}
+        for key in self.user_config:
+            # convert config values back to string
+            if type(defaultconfig[key]) in (int, bool):
+                configlog["2_USER"][key] = str(self.user_config[key])
+            elif type(defaultconfig[key]) == list:
+                configlog["2_USER"][key] = ",".join(self.user_config[key])
+            else:
+                configlog["2_USER"][key] = defaultconfig[key]
+
+        configlog["3_DEFAULT"] = {}
+        for key in defaultconfig:
+            if key not in self.user_config:
+                if type(defaultconfig[key]) in (int, bool):
+                    configlog["3_DEFAULT"][key] = str(defaultconfig[key])
+                elif type(defaultconfig[key]) == list:
+                    configlog["3_DEFAULT"][key] = ",".join(defaultconfig[key])
+                else:
+                    configlog["3_DEFAULT"][key] = defaultconfig[key]
+
+        timestamp = self.start_time.isoformat(sep="T", timespec="seconds")
+        config_log = f"becmodel-config-log_{timestamp}.txt"
+        with open(config_log, "w") as configfile:
+            configlog.write(configfile)
 
     @property
     def high_elevation_merges(self):
@@ -741,11 +753,12 @@ class BECModel(object):
     def write(self, qa=False):
         """ Write outputs to disk
         """
-        config = self.config
-        # read DEM to get crs / width / height etc
-        with rasterio.open(os.path.join(config["wksp"], "dem.tif")) as src:
 
-            if qa:
+        # write temp data if qa option specified
+        if qa:
+
+            # read DEM to get crs / width / height etc
+            with rasterio.open(os.path.join(self.config["wksp"], "dem.tif")) as src:
                 for raster in [
                     "03_ruleimg",
                     "04_becinit",
@@ -757,7 +770,7 @@ class BECModel(object):
                     "10_noise2",
                 ]:
                     with rasterio.open(
-                        os.path.join(config["wksp"], raster + ".tif"),
+                        os.path.join(self.config["wksp"], raster + ".tif"),
                         "w",
                         driver="GTiff",
                         dtype=rasterio.uint16,
@@ -769,9 +782,12 @@ class BECModel(object):
                     ) as dst:
                         dst.write(self.data[raster].astype(np.uint16), indexes=1)
 
-            # write output vectors to file
-            self.data["becvalue_polys"].to_file(
-                config["out_file"], layer=config["out_layer"], driver="GPKG"
-            )
+        # write output vectors to file
+        self.data["becvalue_polys"].to_file(
+            self.config["out_file"], layer=self.config["out_layer"], driver="GPKG"
+        )
 
-            log.info("Output {} created".format(config["out_file"]))
+        # dump config settings to file
+        self.write_config_log()
+
+        log.info("Output {} created".format(self.config["out_file"]))
