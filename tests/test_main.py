@@ -41,7 +41,7 @@ def test_invalid_rule_layer():
 
 def test_reproject_rule_layer():
     BM = BECModel(TESTCONFIG)
-    BM.update_config({"rulepolys_file": "tests/data/rulepolys.geojson"})
+    BM.update_config({"rulepolys_file": "tests/data/rulepolys_4326.geojson"})
     BM.update_config({"rulepolys_layer": None})
     BM.load()
     assert BM.data["rulepolys"].crs["init"].upper() == "EPSG:3005"
