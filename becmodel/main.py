@@ -749,9 +749,10 @@ class BECModel(object):
         data["becvalue_polys"].crs = {"init": "epsg:3005"}
 
         # add area_ha column
-        data["becvalue_polys"]["AREA_HECTARES"] = round(
-            data["becvalue_polys"]["geometry"].area / 10000, 1
-        )
+        data["becvalue_polys"]["AREA_HECTARES"] = data["becvalue_polys"]["geometry"].area / 10000
+
+        # round to 1 decimal place
+        data["becvalue_polys"].AREA_HECTARES = data["becvalue_polys"].AREA_HECTARES.round(1)
 
         self.data = data
 
