@@ -741,12 +741,17 @@ class BECModel(object):
         data["becvalue_polys"] = gpd.GeoDataFrame.from_features(fc)
 
         # add beclabel column to output polygons
-        data["becvalue_polys"]["beclabel"] = data["becvalue_polys"]["becvalue"].map(
+        data["becvalue_polys"]["BGC_LABEL"] = data["becvalue_polys"]["becvalue"].map(
             self.beclabel_lookup
         )
 
         # set crs
         data["becvalue_polys"].crs = {"init": "epsg:3005"}
+
+        # add area_ha column
+        data["becvalue_polys"]["AREA_HECTARES"] = round(
+            data["becvalue_polys"]["geometry"].area / 10000, 1
+        )
 
         self.data = data
 
@@ -782,7 +787,11 @@ class BECModel(object):
                     ) as dst:
                         dst.write(self.data[raster].astype(np.uint16), indexes=1)
 
-        # write output vectors to file
+        # remove becvaule column, and write output vectors to file
+        self.data["becvalue_polys"] = self.data["becvalue_polys"].drop(
+            columns=["becvalue"]
+        )
+
         self.data["becvalue_polys"].to_file(
             self.config["out_file"], layer=self.config["out_layer"], driver="GPKG"
         )

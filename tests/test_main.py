@@ -2,6 +2,7 @@ import os
 
 import pytest
 import pandas as pd
+import fiona
 
 from becmodel import BECModel
 from becmodel import util
@@ -117,7 +118,9 @@ def test_load_invalid_elevation_bands():
 
 
 def test_run(tmpdir):
-    """ Check that outputs are created, not necessarily correct...
+    """
+    Check that outputs are created and properly structured
+    (not necessarily correct!)
     """
     BM = BECModel("tests/test.cfg")
     BM.update_config({"temp_folder": str(tmpdir)})
@@ -129,3 +132,9 @@ def test_run(tmpdir):
     assert os.path.exists(tmpdir.join("dem.tif"))
     assert os.path.exists(tmpdir.join("aspect.tif"))
     assert os.path.exists(tmpdir.join("bectest.gpkg"))
+    assert fiona.listlayers(os.path.join(tmpdir, "bectest.gpkg")) == ["becmodel"]
+    with fiona.open(os.path.join(tmpdir, "bectest.gpkg")) as output:
+        assert list(output.schema["properties"].keys()) == [
+            "BGC_LABEL",
+            "AREA_HECTARES",
+        ]
