@@ -566,6 +566,29 @@ class BECModel(object):
         config = self.config
         data = self.data
 
+        # before performing the majority filter, group high elevation
+        # labels across rule polygons (alpine, parkland, woodland)
+        data["99_becinit_grouped"] = data["04_becinit"].copy()
+        high_elevation_aggregates = {
+            "alpine": 63000,
+            "parkland": 64000,
+            "woodland": 65000
+        }
+        for key in high_elevation_aggregates:
+            for becvalue in self.high_elevation_dissolves[key]:
+                data["99_becinit_grouped"] = np.where(
+                    data["99_becinit_grouped"] == becvalue,
+                    high_elevation_aggregates[key],
+                    data["99_becinit_grouped"]
+                )
+
+        # note high elevation becvalues (to exclude from initial filters)
+        high_elevation_becvalues = (
+            self.high_elevation_dissolves["alpine"]
+            + self.high_elevation_dissolves["parkland"]
+            + self.high_elevation_dissolves["woodland"]
+        )
+
         # ----------------------------------------------------------------
         # majority filter
         # ----------------------------------------------------------------
@@ -573,13 +596,13 @@ class BECModel(object):
         data["05_majority"] = np.where(
             data["slope"] < config["majority_filter_steep_slope_threshold_percent"],
             majority(
-                data["04_becinit"],
+                data["99_becinit_grouped"],
                 morphology.rectangle(
                     width=self.filtersize_low, height=self.filtersize_low
                 ),
             ),
             majority(
-                data["04_becinit"],
+                data["99_becinit_grouped"],
                 morphology.rectangle(
                     width=self.filtersize_steep, height=self.filtersize_steep
                 ),
@@ -601,9 +624,8 @@ class BECModel(object):
         # initialize the output raster for noise filter
         data["06_noise"] = np.zeros(shape=self.shape, dtype="uint16")
 
-        # loop through all becvalues
-        # (first removing the extra zero in the lookup)
-        for becvalue in [v for v in self.beclabel_lookup if v != 0]:
+        # loop non zero / high elevation becvalues
+        for becvalue in [v for v in self.beclabel_lookup if v not in [[0] + high_elevation_becvalues]]:
 
             # extract given becvalue
             X = np.where(data["05_majority"] == becvalue, 1, 0)
@@ -641,12 +663,19 @@ class BECModel(object):
                     data["07_areaclosing"],
                 )
 
+        # reinsert the original high elevation values
+        data["100_postnoise"] = np.where(
+            data["07_areaclosing"] == 0,
+            data["04_becinit"],
+            data["07_areaclosing"]
+        )
+
         # ----------------------------------------------------------------
         # Noise Removal 3 - highelevfilter
         # High elevation noise removal
         # ----------------------------------------------------------------
         # initialize output image
-        data["08_highelev"] = data["07_areaclosing"].copy()
+        data["08_highelev"] = data["100_postnoise"].copy()
         # convert high_elevation_removal_threshold value from ha to n cells
         high_elevation_removal_threshold = int(
             (self.config["high_elevation_removal_threshold_ha"] * 10000)
@@ -695,8 +724,8 @@ class BECModel(object):
         # kernel would probably be fine but lets use the existing variable
         # size.
         # ----------------------------------------------------------------
-        #log.info("Running majority filter again to tidy edges")
-        #data["09_majority2"] = np.where(
+        # log.info("Running majority filter again to tidy edges")
+        # data["09_majority2"] = np.where(
         # data["slope"] < config["majority_filter_steep_slope_threshold_percent"],
         #             majority(
         #                 data["08_highelev"],
@@ -775,14 +804,13 @@ class BECModel(object):
         ].AREA_HECTARES.round(1)
 
         # clip to aggregated rule polygons
-        # (buffer the dissolved rules in and out to ensure no small holes)
+        # (buffer the dissolved rules out and in to ensure no small holes
+        # are created by dissolve due to precision errors)
         data["rulepolys"]["rules"] = 1
         X = data["rulepolys"].dissolve(by="rules").buffer(.01).buffer(-.01)
-        Y = gpd.GeoDataFrame(X).rename(columns={0:'geometry'}).set_geometry('geometry')
+        Y = gpd.GeoDataFrame(X).rename(columns={0: "geometry"}).set_geometry("geometry")
         data["becvalue_polys"] = gpd.overlay(
-            data["becvalue_polys"],
-            Y,
-            how="intersection",
+            data["becvalue_polys"], Y, how="intersection"
         )
 
         # remove rulepoly fields
@@ -804,11 +832,13 @@ class BECModel(object):
                 for raster in [
                     "03_ruleimg",
                     "04_becinit",
+                    "99_becinit_grouped",
                     "05_majority",
                     "06_noise",
                     "07_areaclosing",
+                    "100_postnoise",
                     "08_highelev",
-                    #"09_majority2",
+                    # "09_majority2",
                     "10_noise2",
                 ]:
                     with rasterio.open(

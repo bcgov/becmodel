@@ -138,3 +138,19 @@ def test_run(tmpdir):
             "BGC_LABEL",
             "AREA_HECTARES",
         ]
+
+
+#def test_robson(tmpdir):
+    """
+    Check for correct alpine processing
+    """
+    #BM = BECModel("tests/test_robson.cfg")
+    #BM.update_config({"temp_folder": str(tmpdir)})
+    #BM.update_config({"out_file": str(os.path.join(tmpdir, "bectest_robson1.gpkg"))})
+    #BM.load()
+    #BM.model()
+    #BM.postfilter()
+    #BM.write()
+#    assert os.path.exists(tmpdir.join("bectest_robson1.gpkg"))
+    # open with geopandas
+    # - check alpine numbers...?
