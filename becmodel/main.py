@@ -24,7 +24,7 @@ from becmodel import util
 from becmodel.config import defaultconfig
 
 
-log = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 class ConfigError(Exception):
@@ -40,7 +40,8 @@ class BECModel(object):
     """
 
     def __init__(self, config_file=None):
-        log.info("Initializing BEC model v{}".format(becmodel.__version__))
+        util.configure_logging()
+        LOG.info("Initializing BEC model v{}".format(becmodel.__version__))
 
         # load and validate supplied config file
         if config_file:
@@ -49,7 +50,6 @@ class BECModel(object):
         else:
             self.config = defaultconfig.copy()
 
-        util.configure_logging(self.config)
         # load inputs & validate
         self.data = util.load_tables(self.config)
 
@@ -59,7 +59,7 @@ class BECModel(object):
     def read_config(self, config_file):
         """Read provided config file, overwriting default config values
         """
-        log.info("Loading config from file: %s", config_file)
+        LOG.info("Loading config from file: %s", config_file)
         cfg = configparser.ConfigParser()
         cfg.read(config_file)
         self.user_config = dict(cfg["CONFIG"])
@@ -337,6 +337,9 @@ class BECModel(object):
         config = self.config
         data = self.data
 
+        # note workspace
+        LOG.info("Temp data are here: {}".format(self.config["temp_folder"]))
+
         # arbitrarily assign grid raster values based on list of beclabels
         self.becvalue_lookup = {
             v: i
@@ -363,7 +366,7 @@ class BECModel(object):
             )
         )
 
-        log.info("Downloading and processing DEM")
+        LOG.info("Downloading and processing DEM")
 
         # get bounds from gdf and bump out by specified expansion
         bounds = list(data["rulepolys"].geometry.total_bounds)
@@ -475,7 +478,7 @@ class BECModel(object):
         b, c = ndimage.distance_transform_edt(a, return_indices=True)
 
         # extract only the part of the feature transform within 3 cells
-        data["03_ruleimg"] = np.where(b < 3, rules[c[0], c[1]], 0)
+        data["ruleimg"] = np.where(b < 3, rules[c[0], c[1]], 0)
 
         self.data = data
 
@@ -487,7 +490,7 @@ class BECModel(object):
         setting output raster to becvalue for each row where criteria are met
         by the dem/aspect/rulepolys.
         """
-        log.info("Generating initial becvalue raster:")
+        LOG.info("Generating initial becvalue raster:")
         # shortcut
         data = self.data
 
@@ -496,7 +499,7 @@ class BECModel(object):
         # Elevations in the source elevation table are stretched across
         # the aspect temperature zones (cool/neutral/warm/neutral/cool) in
         # an effort to smooth out transitions values between aspects
-        data["04_becinit"] = np.zeros(shape=self.shape, dtype="uint16")
+        data["becinit"] = np.zeros(shape=self.shape, dtype="uint16")
         # iterate through rows in elevation table
         elevation_rows = data["elevation"].to_dict("records")
         with click.progressbar(elevation_rows) as bar:
@@ -534,8 +537,8 @@ class BECModel(object):
                         # for any aspect classes where min > max (they span 0),
                         # do the < 360/0 part as a separate first step
                         if aspect_min > aspect_max:
-                            data["04_becinit"][
-                                (data["03_ruleimg"] == row["polygon_number"])
+                            data["becinit"][
+                                (data["ruleimg"] == row["polygon_number"])
                                 & (data["aspect"] >= aspect_min)
                                 & (data["dem"] >= elev_min)
                                 & (data["dem"] < elev_max)
@@ -544,8 +547,8 @@ class BECModel(object):
                             aspect_min = 0
 
                         # assign becvalues based on rule & min/max elev/aspect
-                        data["04_becinit"][
-                            (data["03_ruleimg"] == row["polygon_number"])
+                        data["becinit"][
+                            (data["ruleimg"] == row["polygon_number"])
                             & (data["aspect"] >= aspect_min)
                             & (data["aspect"] < aspect_max)
                             & (data["dem"] >= elev_min)
@@ -568,7 +571,7 @@ class BECModel(object):
 
         # before performing the majority filter, group high elevation
         # labels across rule polygons (alpine, parkland, woodland)
-        data["99_becinit_grouped"] = data["04_becinit"].copy()
+        data["becinit_grouped"] = data["becinit"].copy()
         high_elevation_aggregates = {
             "alpine": 63000,
             "parkland": 64000,
@@ -576,10 +579,10 @@ class BECModel(object):
         }
         for key in high_elevation_aggregates:
             for becvalue in self.high_elevation_dissolves[key]:
-                data["99_becinit_grouped"] = np.where(
-                    data["99_becinit_grouped"] == becvalue,
+                data["becinit_grouped"] = np.where(
+                    data["becinit_grouped"] == becvalue,
                     high_elevation_aggregates[key],
-                    data["99_becinit_grouped"]
+                    data["becinit_grouped"]
                 )
 
         # note high elevation becvalues (to exclude from initial filters)
@@ -592,17 +595,17 @@ class BECModel(object):
         # ----------------------------------------------------------------
         # majority filter
         # ----------------------------------------------------------------
-        log.info("Running majority filter")
-        data["05_majority"] = np.where(
+        LOG.info("Running majority filter")
+        data["majority"] = np.where(
             data["slope"] < config["majority_filter_steep_slope_threshold_percent"],
             majority(
-                data["99_becinit_grouped"],
+                data["becinit_grouped"],
                 morphology.rectangle(
                     width=self.filtersize_low, height=self.filtersize_low
                 ),
             ),
             majority(
-                data["99_becinit_grouped"],
+                data["becinit_grouped"],
                 morphology.rectangle(
                     width=self.filtersize_steep, height=self.filtersize_steep
                 ),
@@ -613,7 +616,7 @@ class BECModel(object):
         # Noise Removal 1 - noisefilter
         # Remove holes < the noise_removal_threshold within each zone
         # ----------------------------------------------------------------
-        log.info("Running noise removal filter")
+        LOG.info("Running noise removal filter")
 
         # convert noise_removal_threshold value from ha to n cells
         noise_threshold = int(
@@ -622,13 +625,13 @@ class BECModel(object):
         )
 
         # initialize the output raster for noise filter
-        data["06_noise"] = np.zeros(shape=self.shape, dtype="uint16")
+        data["noise"] = np.zeros(shape=self.shape, dtype="uint16")
 
         # loop non zero / high elevation becvalues
         for becvalue in [v for v in self.beclabel_lookup if v not in [[0] + high_elevation_becvalues]]:
 
             # extract given becvalue
-            X = np.where(data["05_majority"] == becvalue, 1, 0)
+            X = np.where(data["majority"] == becvalue, 1, 0)
 
             # fill holes, remove small objects
             Y = morphology.remove_small_holes(
@@ -639,7 +642,7 @@ class BECModel(object):
             )
 
             # insert values into output
-            data["06_noise"] = np.where(Z != 0, becvalue, data["06_noise"])
+            data["noise"] = np.where(Z != 0, becvalue, data["noise"])
 
         # ----------------------------------------------------------------
         # Noise Removal 2 - areaclosing
@@ -647,27 +650,27 @@ class BECModel(object):
         # (removing small holes and then removing small objects leaves holes
         # of 0 along rule poly edges)
         # ----------------------------------------------------------------
-        log.info("Running morphology.area_closing() to clean results of noise filter")
-        data["07_areaclosing"] = data["06_noise"].copy()
+        LOG.info("Running morphology.area_closing() to clean results of noise filter")
+        data["areaclosing"] = data["noise"].copy()
         rule_poly_iter = data["rulepolys"].polygon_number.tolist()
         with click.progressbar(rule_poly_iter) as bar:
             for rule_poly in bar:
                 # extract image area within the rule poly
-                X = np.where(data["03_ruleimg"] == rule_poly, data["06_noise"], 100)
+                X = np.where(data["ruleimg"] == rule_poly, data["noise"], 100)
                 Y = morphology.area_closing(
                     X, noise_threshold, connectivity=config["cell_connectivity"]
                 )
-                data["07_areaclosing"] = np.where(
-                    (data["03_ruleimg"] == rule_poly) & (data["06_noise"] == 0),
+                data["areaclosing"] = np.where(
+                    (data["ruleimg"] == rule_poly) & (data["noise"] == 0),
                     Y,
-                    data["07_areaclosing"],
+                    data["areaclosing"],
                 )
 
         # reinsert the original high elevation values
-        data["100_postnoise"] = np.where(
-            data["07_areaclosing"] == 0,
-            data["04_becinit"],
-            data["07_areaclosing"]
+        data["postnoise"] = np.where(
+            data["areaclosing"] == 0,
+            data["becinit"],
+            data["areaclosing"]
         )
 
         # ----------------------------------------------------------------
@@ -675,7 +678,7 @@ class BECModel(object):
         # High elevation noise removal
         # ----------------------------------------------------------------
         # initialize output image
-        data["08_highelev"] = data["100_postnoise"].copy()
+        data["highelev"] = data["postnoise"].copy()
         # convert high_elevation_removal_threshold value from ha to n cells
         high_elevation_removal_threshold = int(
             (self.config["high_elevation_removal_threshold_ha"] * 10000)
@@ -688,7 +691,7 @@ class BECModel(object):
         # well (eg, if parkland is present, woodland and high must be too)
         high_elevation_types = list(self.high_elevation_dissolves.keys())
         for i, highelev_type in enumerate(high_elevation_types[:-1]):
-            log.info(
+            LOG.info(
                 "Running high_elevation_removal_threshold on {}".format(highelev_type)
             )
 
@@ -696,7 +699,7 @@ class BECModel(object):
             # eg, find and aggregate all parkland values for finding alpine
             # area < threshold
             to_agg = self.high_elevation_dissolves[high_elevation_types[i + 1]]
-            X = np.isin(data["08_highelev"], to_agg)
+            X = np.isin(data["highelev"], to_agg)
             Y = morphology.remove_small_holes(
                 X,
                 high_elevation_removal_threshold,
@@ -709,10 +712,10 @@ class BECModel(object):
             for merge in [
                 m for m in self.high_elevation_merges if m["type"] == highelev_type
             ]:
-                data["08_highelev"] = np.where(
-                    (Y == 1) & (data["03_ruleimg"] == merge["rule"]),
+                data["highelev"] = np.where(
+                    (Y == 1) & (data["ruleimg"] == merge["rule"]),
                     merge["becvalue_target"],
-                    data["08_highelev"],
+                    data["highelev"],
                 )
 
         # ----------------------------------------------------------------
@@ -724,17 +727,17 @@ class BECModel(object):
         # kernel would probably be fine but lets use the existing variable
         # size.
         # ----------------------------------------------------------------
-        # log.info("Running majority filter again to tidy edges")
-        # data["09_majority2"] = np.where(
+        # LOG.info("Running majority filter again to tidy edges")
+        # data["majority2"] = np.where(
         # data["slope"] < config["majority_filter_steep_slope_threshold_percent"],
         #             majority(
-        #                 data["08_highelev"],
+        #                 data["highelev"],
         #                 morphology.rectangle(
         #                     width=self.filtersize_low, height=self.filtersize_low
         #                 ),
         #             ),
         #             majority(
-        #                 data["08_highelev"],
+        #                 data["highelev"],
         #                 morphology.rectangle(
         #                     width=self.filtersize_steep, height=self.filtersize_steep
         #                 ),
@@ -747,15 +750,15 @@ class BECModel(object):
         # noise, run a basic noise filter
         # ----------------------------------------------------------------
         # initialize the output raster for noise filter
-        log.info("Running noise filter again to clean results of majority filter")
-        data["10_noise2"] = data["08_highelev"].copy()
+        LOG.info("Running noise filter again to clean results of majority filter")
+        data["noise2"] = data["highelev"].copy()
 
         # loop through all becvalues
         # (first removing the extra zero in the lookup)
         for becvalue in [v for v in self.beclabel_lookup if v != 0]:
 
             # extract given becvalue
-            X = np.where(data["08_highelev"] == becvalue, 1, 0)
+            X = np.where(data["highelev"] == becvalue, 1, 0)
 
             # fill holes, remove small objects
             Y = morphology.remove_small_holes(
@@ -766,7 +769,7 @@ class BECModel(object):
             )
 
             # insert values into output
-            data["10_noise2"] = np.where(Z != 0, becvalue, data["10_noise2"])
+            data["noise2"] = np.where(Z != 0, becvalue, data["noise2"])
 
         # ----------------------------------------------------------------
         # Convert to poly
@@ -776,7 +779,7 @@ class BECModel(object):
                 Feature(geometry=s, properties={"becvalue": v})
                 for i, (s, v) in enumerate(
                     shapes(
-                        data["10_noise2"],
+                        data["noise2"],
                         transform=self.transform,
                         connectivity=(config["cell_connectivity"] * 4),
                     )
@@ -824,25 +827,17 @@ class BECModel(object):
         """ Write outputs to disk
         """
 
-        # write temp data if qa option specified
+        # if qa specified, dump all intermediate raster data to file
         if qa:
-
+            # loop through everything loaded to the .data dictionary
+            # and write/index if it is a numpy array
+            qa_dumps = [d for d in self.data.keys() if type(self.data[d]) == np.ndarray]
             # read DEM to get crs / width / height etc
             with rasterio.open(os.path.join(self.config["wksp"], "dem.tif")) as src:
-                for raster in [
-                    "03_ruleimg",
-                    "04_becinit",
-                    "99_becinit_grouped",
-                    "05_majority",
-                    "06_noise",
-                    "07_areaclosing",
-                    "100_postnoise",
-                    "08_highelev",
-                    # "09_majority2",
-                    "10_noise2",
-                ]:
+                for i, raster in enumerate(qa_dumps):
+                    out_qa_tif = os.path.join(self.config["wksp"], str(i).zfill(2) + "_" + raster + ".tif")
                     with rasterio.open(
-                        os.path.join(self.config["wksp"], raster + ".tif"),
+                        out_qa_tif,
                         "w",
                         driver="GTiff",
                         dtype=rasterio.uint16,
@@ -853,6 +848,13 @@ class BECModel(object):
                         transform=src.transform,
                     ) as dst:
                         dst.write(self.data[raster].astype(np.uint16), indexes=1)
+            # delete the gdal created dem/aspect/slope rasters because we
+            # dump them to file again above
+            for raster in ["dem", "slope", "aspect"]:
+                os.unlink(os.path.join(self.config["wksp"], raster + ".tif"))
+
+            # remind user where to find QA data
+            LOG.info("QA files are here: {}".format(self.config["temp_folder"]))
 
         # remove becvalue column
         self.data["becvalue_polys"] = self.data["becvalue_polys"].drop(
@@ -867,4 +869,4 @@ class BECModel(object):
         # dump config settings to file
         self.write_config_log()
 
-        log.info("Output {} created".format(self.config["out_file"]))
+        LOG.info("Output {} created".format(self.config["out_file"]))

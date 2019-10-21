@@ -1,11 +1,12 @@
 # Default config
 # To overwrite these values, initialize becmodel with a config file
+import tempfile
 
 defaultconfig = {
     "rulepolys_file": "becmodel.gdb",
     "rulepolys_layer": "rulepolys",
     "elevation": "elevation.xls",
-    "temp_folder": "tempdata",
+    "temp_folder": tempfile.mkdtemp(prefix="becmodel-"),
     "out_file": "becmodel.gpkg",
     "out_layer": "becmodel",
     "cell_size_metres": 50,

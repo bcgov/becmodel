@@ -11,7 +11,7 @@ import numpy as np
 import geopandas as gpd
 
 
-log = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 class DataValueError(Exception):
@@ -90,7 +90,7 @@ def load_tables(config):
             data["rulepolys"].crs
             and data["rulepolys"].crs["init"].upper() != "EPSG:3005"
         ):
-            log.info(
+            LOG.info(
                 "Input data is not specified as BC Albers, attempting to reproject"
             )
             data["rulepolys"] = data["rulepolys"].to_crs({"init": "EPSG:3005"})
@@ -160,7 +160,7 @@ def validate_data(data):
                 )
 
 
-def configure_logging(config):
+def configure_logging():
     logger = logging.getLogger()
     formatter = logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
     logger.setLevel(logging.INFO)
