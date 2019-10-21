@@ -160,17 +160,6 @@ def validate_data(data):
                 )
 
 
-def configure_logging():
-    logger = logging.getLogger()
-    formatter = logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
-    logger.setLevel(logging.INFO)
-
-    streamhandler = logging.StreamHandler()
-    streamhandler.setFormatter(formatter)
-    streamhandler.setLevel(logging.INFO)
-    logger.addHandler(streamhandler)
-
-
 def multi2single(gdf):
     """
     multi to single is not a geopandas builtin

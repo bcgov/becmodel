@@ -27,6 +27,7 @@ requires = [
     "rasterio",
     "scikit-image",
     "xlrd",
+    "cligj"
 ]
 
 test_requirements = ["pytest"]

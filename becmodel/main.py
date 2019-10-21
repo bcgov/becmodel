@@ -40,7 +40,6 @@ class BECModel(object):
     """
 
     def __init__(self, config_file=None):
-        util.configure_logging()
         LOG.info("Initializing BEC model v{}".format(becmodel.__version__))
 
         # load and validate supplied config file
