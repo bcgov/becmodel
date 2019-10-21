@@ -450,9 +450,7 @@ class BECModel(object):
         ] = config["aspect_midpoint_neutral_east_degrees"]
 
         # ----------------------------------------------------------------
-        # convert rule polygons to raster, and expand the outer rule bounds
-        # slightly (3 pixels) to allow for later cutting by source linework
-        # (for smooth outer edges in final product)
+        # convert rule polygons to raster and expand the outer rule bounds
         # ----------------------------------------------------------------
         # load to raster
         rules = features.rasterize(
@@ -477,8 +475,15 @@ class BECModel(object):
         # (allowing us to perform 'Euclidean Allocation')
         b, c = ndimage.distance_transform_edt(a, return_indices=True)
 
-        # extract only the part of the feature transform within 3 cells
-        data["ruleimg"] = np.where(b < 3, rules[c[0], c[1]], 0)
+        # extract only the part of the feature transform within
+        # our expansion distance
+        expand_bounds_cells = ceil(
+            (
+                config["expand_bounds_metres"]
+                / config["cell_size_metres"]
+            )
+        )
+        data["ruleimg"] = np.where(b < expand_bounds_cells, rules[c[0], c[1]], 0)
 
         self.data = data
 
