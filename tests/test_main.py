@@ -41,8 +41,13 @@ def test_invalid_rule_layer():
 
 def test_reproject_rule_layer():
     BM = BECModel(TESTCONFIG)
-    BM.update_config({"rulepolys_file": "tests/data/rulepolys_4326.geojson"})
-    BM.update_config({"rulepolys_layer": None})
+    BM.update_config(
+        {
+            "rulepolys_file": "tests/data/rulepolys_4326.geojson",
+            "rulepolys_layer": None
+        },
+        reload=True
+    )
     BM.load()
     assert BM.data["rulepolys"].crs["init"].upper() == "EPSG:3005"
 
@@ -98,6 +103,24 @@ def test_load_invalid_elevation():
     with pytest.raises(DataValueError):
         BM = BECModel(TESTCONFIG)
         BM.update_config({"elevation": "tests/data/elevation_invalid.csv"}, reload=True)
+
+
+# test loading terrain tiles is successful
+def test_load_terraintile_elevation(tmpdir):
+    BM = BECModel(TESTCONFIG)
+
+    BM.update_config(
+        {
+            "temp_folder": str(tmpdir),
+            "rulepolys_file": "tests/data/rulepolys_4326_usa.geojson",
+            "rulepolys_layer": None
+        },
+        reload=True
+    )
+    BM.load()
+    assert os.path.exists(tmpdir.join("dem_bc.tif"))
+    assert os.path.exists(tmpdir.join("dem_exbc.tif"))
+    assert os.path.exists(tmpdir.join("dem.tif"))
 
 
 def test_load_invalid_elevation_bands():

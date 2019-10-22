@@ -6,6 +6,7 @@ from pathlib import Path
 import logging
 import logging.handlers
 
+from shapely.geometry import Point, Polygon
 import pandas as pd
 import numpy as np
 import geopandas as gpd
@@ -179,3 +180,19 @@ def multi2single(gdf):
 
     gdf_singlepoly.reset_index(inplace=True, drop=True)
     return gdf_singlepoly
+
+
+def bbox2gdf(bbox):
+    p1 = Point(bbox[0], bbox[3])
+    p2 = Point(bbox[2], bbox[3])
+    p3 = Point(bbox[2], bbox[1])
+    p4 = Point(bbox[0], bbox[1])
+
+    np1 = (p1.coords.xy[0][0], p1.coords.xy[1][0])
+    np2 = (p2.coords.xy[0][0], p2.coords.xy[1][0])
+    np3 = (p3.coords.xy[0][0], p3.coords.xy[1][0])
+    np4 = (p4.coords.xy[0][0], p4.coords.xy[1][0])
+
+    bb_polygon = Polygon([np1, np2, np3, np4])
+
+    return gpd.GeoDataFrame(gpd.GeoSeries(bb_polygon), columns=['geometry'])

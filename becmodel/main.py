@@ -8,6 +8,8 @@ import fiona
 import rasterio
 from rasterio import features
 from rasterio.features import shapes
+from rasterio.warp import transform_bounds
+from rasterio.merge import merge as riomerge
 from osgeo import gdal
 import numpy as np
 import geopandas as gpd
@@ -21,6 +23,7 @@ import bcdata
 
 import becmodel
 from becmodel import util
+from becmodel import terraincache
 from becmodel.config import defaultconfig
 
 
@@ -383,18 +386,69 @@ class BECModel(object):
             shutil.rmtree(config["wksp"])
         util.make_sure_path_exists(config["wksp"])
 
+        # do bounds extend outside of BC?
+        bounds_ll = transform_bounds("EPSG:3005", "EPSG:4326", *data["bounds"])
+        bounds_gdf = util.bbox2gdf(bounds_ll)
+
+        # load neighbours
+        gdf = gpd.read_file("/Users/snorris/projects/geobc/bec_modernization/becmodel/data/neighbours.geojson")
+        neighbours = gdf.dissolve(by='scalerank')[['name','geometry']]
+        neighbours["name"] = "neighbours"
+
+        outside_bc = gpd.overlay(neighbours, bounds_gdf, how='intersection')
+
+        # if nothing in bbox is outside bc, just grab bc dem as dem.tif
+        dempath = os.path.join(config["wksp"], "dem.tif")
+        if outside_bc.empty is True:
+            if not os.path.exists(dempath):
+                bcdata.get_dem(
+                    data["bounds"],
+                    dempath,
+                    resolution=config["cell_size_metres"],
+                )
+        # if the bbox does extend outside of BC, then grab both BC
+        # and terrain-tiles and combine the sources into dem.tif
+        else:
+
+            dem_bc = os.path.join(config["wksp"], "dem_bc.tif")
+            dem_exbc = os.path.join(config["wksp"], "dem_exbc.tif")
+            if not os.path.exists(dem_bc):
+                bcdata.get_dem(
+                    data["bounds"],
+                    dem_bc,
+                    resolution=config["cell_size_metres"],
+                )
+            # get terrain-tiles
+            if not os.path.exists(dem_exbc):
+                # find path to cached terrain-tiles
+                if "TERRAINCACHE" in os.environ.keys():
+                    terraincache_path = os.environ["TERRAINCACHE"]
+                else:
+                    terraincache_path = os.path.join(config["wksp"], "terrain-tiles")
+                terraincache.merge(bounds_ll, 11, terraincache_path, dst_crs="EPSG:3005", res=config["cell_size_metres"], out_file=dem_exbc)
+            # combine the sources
+            a = rasterio.open(dem_bc)
+            b = rasterio.open(dem_exbc)
+            mosaic, out_trans = riomerge([b, a])
+            out_meta = a.meta.copy()
+            out_meta.update(
+                {
+                    "driver": "GTiff",
+                    "height": mosaic.shape[1],
+                    "width": mosaic.shape[2],
+                    "transform": out_trans,
+                    "crs": "EPSG:3005",
+                }
+            )
+            # write merged tiff
+            with rasterio.open(dempath, "w", **out_meta) as dest:
+                dest.write(mosaic)
+
         # ----------------------------------------------------------------
         # DEM processing
         # ----------------------------------------------------------------
-        if not os.path.exists(os.path.join(config["wksp"], "dem.tif")):
-            bcdata.get_dem(
-                data["bounds"],
-                os.path.join(config["wksp"], "dem.tif"),
-                resolution=config["cell_size_metres"],
-            )
-
         # load dem into memory and get the shape / transform
-        with rasterio.open(os.path.join(config["wksp"], "dem.tif")) as src:
+        with rasterio.open(dempath) as src:
             self.shape = src.shape
             self.transform = src.transform
             data["dem"] = src.read(1)
@@ -852,10 +906,10 @@ class BECModel(object):
                         transform=src.transform,
                     ) as dst:
                         dst.write(self.data[raster].astype(np.uint16), indexes=1)
-            # delete the gdal created dem/aspect/slope rasters because we
+            # delete the inital dem/aspect/slope rasters because we
             # dump them to file again above
-            for raster in ["dem", "slope", "aspect"]:
-                os.unlink(os.path.join(self.config["wksp"], raster + ".tif"))
+            #for raster in ["dem", "slope", "aspect"]:
+            #    os.unlink(os.path.join(self.config["wksp"], raster + ".tif"))
 
             # remind user where to find QA data
             LOG.info("QA files are here: {}".format(self.config["temp_folder"]))
