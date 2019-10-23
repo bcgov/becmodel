@@ -23,7 +23,7 @@ import bcdata
 
 import becmodel
 from becmodel import util
-from becmodel import terraincache
+from becmodel.terraincache import TerrainTiles
 from becmodel.config import defaultconfig
 
 
@@ -425,7 +425,9 @@ class BECModel(object):
                     terraincache_path = os.environ["TERRAINCACHE"]
                 else:
                     terraincache_path = os.path.join(config["wksp"], "terrain-tiles")
-                terraincache.merge(bounds_ll, 11, terraincache_path, dst_crs="EPSG:3005", res=config["cell_size_metres"], out_file=dem_exbc)
+                tt = TerrainTiles(bounds_ll, 11, cache_dir=terraincache_path, dst_crs="EPSG:3005", resolution=config["cell_size_metres"])
+                tt.save(out_file=dem_exbc)
+
             # combine the sources
             a = rasterio.open(dem_bc)
             b = rasterio.open(dem_exbc)
