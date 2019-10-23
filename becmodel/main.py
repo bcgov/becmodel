@@ -391,10 +391,10 @@ class BECModel(object):
         bounds_gdf = util.bbox2gdf(bounds_ll)
 
         # load neighbours
-        gdf = gpd.read_file("/Users/snorris/projects/geobc/bec_modernization/becmodel/data/neighbours.geojson")
-        neighbours = gdf.dissolve(by='scalerank')[['name','geometry']]
-        neighbours["name"] = "neighbours"
-
+        # Note that the natural earth dataset is only 1:10m,
+        # buffer it by 2k to be sure it captures the edge of the province
+        nbr = gpd.read_file("/Users/snorris/projects/geobc/bec_modernization/becmodel/data/neighbours.geojson").dissolve(by='scalerank').buffer(2000)
+        neighbours = gpd.GeoDataFrame(nbr).rename(columns={0: "geometry"}).set_geometry("geometry")
         outside_bc = gpd.overlay(neighbours, bounds_gdf, how='intersection')
 
         # if nothing in bbox is outside bc, just grab bc dem as dem.tif
