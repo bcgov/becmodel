@@ -417,54 +417,53 @@ class BECModel(object):
 
         # if nothing in bbox is outside bc, just grab bc dem as dem.tif
         dempath = os.path.join(config["wksp"], "dem.tif")
-        if outside_bc.empty is True:
-            if not os.path.exists(dempath):
+        if not os.path.exists(dempath):
+            if outside_bc.empty is True:
                 bcdata.get_dem(
                     data["bounds"], dempath, resolution=config["cell_size_metres"]
                 )
-        # if the bbox does extend outside of BC, then grab both BC
-        # and terrain-tiles and combine the sources into dem.tif
-        else:
+            # if the bbox does extend outside of BC, then grab both BC
+            # and terrain-tiles and combine the sources into dem.tif
+            else:
+                dem_bc = os.path.join(config["wksp"], "dem_bc.tif")
+                dem_exbc = os.path.join(config["wksp"], "dem_exbc.tif")
+                if not os.path.exists(dem_bc):
+                    bcdata.get_dem(
+                        data["bounds"], dem_bc, resolution=config["cell_size_metres"]
+                    )
+                # get terrain-tiles
+                if not os.path.exists(dem_exbc):
+                    # find path to cached terrain-tiles
+                    if "TERRAINCACHE" in os.environ.keys():
+                        terraincache_path = os.environ["TERRAINCACHE"]
+                    else:
+                        terraincache_path = os.path.join(config["wksp"], "terrain-tiles")
+                    tt = TerrainTiles(
+                        bounds_ll,
+                        11,
+                        cache_dir=terraincache_path,
+                        dst_crs="EPSG:3005",
+                        resolution=config["cell_size_metres"],
+                    )
+                    tt.save(out_file=dem_exbc)
 
-            dem_bc = os.path.join(config["wksp"], "dem_bc.tif")
-            dem_exbc = os.path.join(config["wksp"], "dem_exbc.tif")
-            if not os.path.exists(dem_bc):
-                bcdata.get_dem(
-                    data["bounds"], dem_bc, resolution=config["cell_size_metres"]
+                # combine the sources
+                a = rasterio.open(dem_bc)
+                b = rasterio.open(dem_exbc)
+                mosaic, out_trans = riomerge([b, a])
+                out_meta = a.meta.copy()
+                out_meta.update(
+                    {
+                        "driver": "GTiff",
+                        "height": mosaic.shape[1],
+                        "width": mosaic.shape[2],
+                        "transform": out_trans,
+                        "crs": "EPSG:3005",
+                    }
                 )
-            # get terrain-tiles
-            if not os.path.exists(dem_exbc):
-                # find path to cached terrain-tiles
-                if "TERRAINCACHE" in os.environ.keys():
-                    terraincache_path = os.environ["TERRAINCACHE"]
-                else:
-                    terraincache_path = os.path.join(config["wksp"], "terrain-tiles")
-                tt = TerrainTiles(
-                    bounds_ll,
-                    11,
-                    cache_dir=terraincache_path,
-                    dst_crs="EPSG:3005",
-                    resolution=config["cell_size_metres"],
-                )
-                tt.save(out_file=dem_exbc)
-
-            # combine the sources
-            a = rasterio.open(dem_bc)
-            b = rasterio.open(dem_exbc)
-            mosaic, out_trans = riomerge([b, a])
-            out_meta = a.meta.copy()
-            out_meta.update(
-                {
-                    "driver": "GTiff",
-                    "height": mosaic.shape[1],
-                    "width": mosaic.shape[2],
-                    "transform": out_trans,
-                    "crs": "EPSG:3005",
-                }
-            )
-            # write merged tiff
-            with rasterio.open(dempath, "w", **out_meta) as dest:
-                dest.write(mosaic)
+                # write merged tiff
+                with rasterio.open(dempath, "w", **out_meta) as dest:
+                    dest.write(mosaic)
 
         # ----------------------------------------------------------------
         # DEM processing
