@@ -77,6 +77,8 @@ def load_tables(config):
                 "polygon_number": np.int16,
             }
         )
+        # extract just the columns of interest, discard everything else
+        data["elevation"] = data["elevation"][["beclabel", "cool_low", "cool_high", "neutral_low", "neutral_high", "warm_low", "warm_high", "polygon_number"]]
         # pad the beclabel so we can join to the catalogue table
         data["elevation"].beclabel = data["elevation"].beclabel.str.pad(9, side="right")
         data["elevation"].set_index("beclabel", inplace=True)
