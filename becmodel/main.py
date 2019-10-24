@@ -47,6 +47,9 @@ class BECModel(object):
 
         # load and validate supplied config file
         if config_file:
+            if not os.path.exists(config_file):
+                raise ConfigValueError(f"File {config_file} does not exist")
+
             self.read_config(config_file)
             self.validate_config()
         else:
@@ -400,9 +403,8 @@ class BECModel(object):
         # buffer it by 2k to be sure it captures the edge of the province
         nbr = (
             gpd.read_file(
-                os.path.join(
-                    os.path.dirname(__file__), "data/neighbours.geojson")
-                )
+                os.path.join(os.path.dirname(__file__), "data/neighbours.geojson")
+            )
             .dissolve(by="scalerank")
             .buffer(2000)
         )

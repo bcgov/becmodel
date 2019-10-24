@@ -105,6 +105,13 @@ def test_load_invalid_elevation():
         BM.update_config({"elevation": "tests/data/elevation_invalid.csv"}, reload=True)
 
 
+# elevation and rulepolys polygon_number values are not exact matches
+def test_load_invalid_beclabel():
+    with pytest.raises(DataValueError):
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"elevation": "tests/data/elevation_invalid_beclabel.csv"}, reload=True)
+
+
 # test loading terrain tiles is successful
 def test_load_terraintile_elevation(tmpdir):
     BM = BECModel(TESTCONFIG)

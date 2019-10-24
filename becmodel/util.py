@@ -78,7 +78,18 @@ def load_tables(config):
             }
         )
         # extract just the columns of interest, discard everything else
-        data["elevation"] = data["elevation"][["beclabel", "cool_low", "cool_high", "neutral_low", "neutral_high", "warm_low", "warm_high", "polygon_number"]]
+        data["elevation"] = data["elevation"][
+            [
+                "beclabel",
+                "cool_low",
+                "cool_high",
+                "neutral_low",
+                "neutral_high",
+                "warm_low",
+                "warm_high",
+                "polygon_number",
+            ]
+        ]
         # pad the beclabel so we can join to the catalogue table
         data["elevation"].beclabel = data["elevation"].beclabel.str.pad(9, side="right")
         data["elevation"].set_index("beclabel", inplace=True)
@@ -86,8 +97,7 @@ def load_tables(config):
         # -- load becvalue ids
         a = pd.read_csv(
             os.path.join(
-                os.path.dirname(__file__),
-                "data/bec_biogeoclimatic_catalogue.csv"
+                os.path.dirname(__file__), "data/bec_biogeoclimatic_catalogue.csv"
             ),
             usecols=[0, 1, 2, 3, 4],
             dtype={"variant": str, "phase": str},
@@ -108,6 +118,16 @@ def load_tables(config):
             data["catalogue"], lsuffix="_caller", rsuffix="_other"
         )
         data["elevation"].reset_index(inplace=True)
+
+        # make sure that all beclabels were successfully joined, bail and warn
+        # the user if beclabels in elevation table are not present in master
+        badlabels = data["elevation"][data["elevation"].becvalue.isnull()]
+        if len(badlabels) > 0:
+            raise DataValueError(
+                "These beclabel(s) in elevation table are misformatted or do not exist in bec_biogeoclimatic_catalogue: {}".format(
+                    ", ".join(list(badlabels.beclabel.unique()))
+                )
+            )
 
         # -- rule polys
         data["rulepolys"] = gpd.read_file(
