@@ -27,10 +27,9 @@ requires = [
     "rasterio",
     "scikit-image",
     "xlrd",
-    "cligj"
+    "cligj",
+    "mercantile"
 ]
-
-test_requirements = ["pytest"]
 
 setup(
     name="becmodel",
@@ -54,7 +53,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=requires,
-    tests_require=test_requirements,
+    extras_require={"test": ["pytest"]},
     entry_points="""
       [console_scripts]
       becmodel=becmodel.cli:cli
