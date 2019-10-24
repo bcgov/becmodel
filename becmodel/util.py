@@ -77,6 +77,36 @@ def load_tables(config):
                 "polygon_number": np.int16,
             }
         )
+        # pad the beclabel so we can join to the catalogue table
+        data["elevation"].beclabel = data["elevation"].beclabel.str.pad(9, side="right")
+        data["elevation"].set_index("beclabel", inplace=True)
+
+        # -- load becvalue ids
+        a = pd.read_csv(
+            os.path.join(
+                os.path.dirname(__file__),
+                "data/bec_biogeoclimatic_catalogue.csv"
+            ),
+            usecols=[0, 1, 2, 3, 4],
+            dtype={"variant": str, "phase": str},
+        )
+        a = a.rename(columns={"biogeoclimatic_catalogue_id": "becvalue"})
+        a.fillna(" ", inplace=True)
+        a["beclabel"] = (
+            a["zone"].str.pad(4, side="right")
+            + a["subzone"].str.pad(3, side="right")
+            + a["variant"]
+            + a["phase"]
+        )
+        a.set_index("beclabel", inplace=True)
+        data["catalogue"] = a[["becvalue"]]
+
+        # apply join, adding becvalue to elevation table
+        data["elevation"] = data["elevation"].join(
+            data["catalogue"], lsuffix="_caller", rsuffix="_other"
+        )
+        data["elevation"].reset_index(inplace=True)
+
         # -- rule polys
         data["rulepolys"] = gpd.read_file(
             config["rulepolys_file"], layer=config["rulepolys_layer"]
@@ -195,4 +225,4 @@ def bbox2gdf(bbox):
 
     bb_polygon = Polygon([np1, np2, np3, np4])
 
-    return gpd.GeoDataFrame(gpd.GeoSeries(bb_polygon), columns=['geometry'])
+    return gpd.GeoDataFrame(gpd.GeoSeries(bb_polygon), columns=["geometry"])

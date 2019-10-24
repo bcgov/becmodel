@@ -72,13 +72,13 @@ def test_invalid_cell_size3():
 
 def test_load_tables():
     BM = BECModel(TESTCONFIG)
-    assert BM.data["elevation"].beclabel[0] == "MS  xk 1"
+    assert BM.data["elevation"].beclabel[0] == "BG  xh 1 "
 
 
 def test_load_excel():
     BM = BECModel(TESTCONFIG)
     BM.update_config({"elevation": "tests/data/elevation.xlsx"})
-    assert BM.data["elevation"].beclabel[0] == "MS  xk 1"
+    assert BM.data["elevation"].beclabel[0] == "BG  xh 1 "
 
 
 def test_prefilter(tmpdir):

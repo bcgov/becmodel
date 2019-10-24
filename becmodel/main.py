@@ -251,7 +251,7 @@ class BECModel(object):
                         (self.data["elevation"].polygon_number == rule_poly)
                         & (
                             self.data["elevation"].beclabel.str[:7]
-                            == woodland[0][:-1] + " "
+                            == woodland[0][:-3] + " "
                         )
                     ]
                     .tolist()
@@ -342,11 +342,16 @@ class BECModel(object):
         # note workspace
         LOG.info("Temp data are here: {}".format(self.config["temp_folder"]))
 
-        # arbitrarily assign grid raster values based on list of beclabels
-        self.becvalue_lookup = {
-            v: i
-            for i, v in enumerate(list(data["elevation"].beclabel.unique()), start=1)
-        }
+        # create dict that maps beclabel to becvalue
+        uniques = (
+            data["elevation"][["beclabel", "becvalue"]]
+            .drop_duplicates()
+            .to_dict("list")
+        )
+        self.becvalue_lookup = {}
+        for i, v in enumerate(uniques["beclabel"]):
+            self.becvalue_lookup[v] = uniques["becvalue"][i]
+
         # create a reverse lookup
         self.beclabel_lookup = {
             value: key for key, value in self.becvalue_lookup.items()
@@ -393,18 +398,27 @@ class BECModel(object):
         # load neighbours
         # Note that the natural earth dataset is only 1:10m,
         # buffer it by 2k to be sure it captures the edge of the province
-        nbr = gpd.read_file("/Users/snorris/projects/geobc/bec_modernization/becmodel/data/neighbours.geojson").dissolve(by='scalerank').buffer(2000)
-        neighbours = gpd.GeoDataFrame(nbr).rename(columns={0: "geometry"}).set_geometry("geometry")
-        outside_bc = gpd.overlay(neighbours, bounds_gdf, how='intersection')
+        nbr = (
+            gpd.read_file(
+                os.path.join(
+                    os.path.dirname(__file__), "data/neighbours.geojson")
+                )
+            .dissolve(by="scalerank")
+            .buffer(2000)
+        )
+        neighbours = (
+            gpd.GeoDataFrame(nbr)
+            .rename(columns={0: "geometry"})
+            .set_geometry("geometry")
+        )
+        outside_bc = gpd.overlay(neighbours, bounds_gdf, how="intersection")
 
         # if nothing in bbox is outside bc, just grab bc dem as dem.tif
         dempath = os.path.join(config["wksp"], "dem.tif")
         if outside_bc.empty is True:
             if not os.path.exists(dempath):
                 bcdata.get_dem(
-                    data["bounds"],
-                    dempath,
-                    resolution=config["cell_size_metres"],
+                    data["bounds"], dempath, resolution=config["cell_size_metres"]
                 )
         # if the bbox does extend outside of BC, then grab both BC
         # and terrain-tiles and combine the sources into dem.tif
@@ -414,9 +428,7 @@ class BECModel(object):
             dem_exbc = os.path.join(config["wksp"], "dem_exbc.tif")
             if not os.path.exists(dem_bc):
                 bcdata.get_dem(
-                    data["bounds"],
-                    dem_bc,
-                    resolution=config["cell_size_metres"],
+                    data["bounds"], dem_bc, resolution=config["cell_size_metres"]
                 )
             # get terrain-tiles
             if not os.path.exists(dem_exbc):
@@ -425,7 +437,13 @@ class BECModel(object):
                     terraincache_path = os.environ["TERRAINCACHE"]
                 else:
                     terraincache_path = os.path.join(config["wksp"], "terrain-tiles")
-                tt = TerrainTiles(bounds_ll, 11, cache_dir=terraincache_path, dst_crs="EPSG:3005", resolution=config["cell_size_metres"])
+                tt = TerrainTiles(
+                    bounds_ll,
+                    11,
+                    cache_dir=terraincache_path,
+                    dst_crs="EPSG:3005",
+                    resolution=config["cell_size_metres"],
+                )
                 tt.save(out_file=dem_exbc)
 
             # combine the sources
@@ -533,10 +551,7 @@ class BECModel(object):
         # extract only the part of the feature transform within
         # our expansion distance
         expand_bounds_cells = ceil(
-            (
-                config["expand_bounds_metres"]
-                / config["cell_size_metres"]
-            )
+            (config["expand_bounds_metres"] / config["cell_size_metres"])
         )
         data["ruleimg"] = np.where(b < expand_bounds_cells, rules[c[0], c[1]], 0)
 
@@ -635,14 +650,14 @@ class BECModel(object):
         high_elevation_aggregates = {
             "alpine": 63000,
             "parkland": 64000,
-            "woodland": 65000
+            "woodland": 65000,
         }
         for key in high_elevation_aggregates:
             for becvalue in self.high_elevation_dissolves[key]:
                 data["becinit_grouped"] = np.where(
                     data["becinit_grouped"] == becvalue,
                     high_elevation_aggregates[key],
-                    data["becinit_grouped"]
+                    data["becinit_grouped"],
                 )
 
         # note high elevation becvalues (to exclude from initial filters)
@@ -688,7 +703,9 @@ class BECModel(object):
         data["noise"] = np.zeros(shape=self.shape, dtype="uint16")
 
         # loop non zero / high elevation becvalues
-        for becvalue in [v for v in self.beclabel_lookup if v not in [[0] + high_elevation_becvalues]]:
+        for becvalue in [
+            v for v in self.beclabel_lookup if v not in [[0] + high_elevation_becvalues]
+        ]:
 
             # extract given becvalue
             X = np.where(data["majority"] == becvalue, 1, 0)
@@ -728,9 +745,7 @@ class BECModel(object):
 
         # reinsert the original high elevation values
         data["postnoise"] = np.where(
-            data["areaclosing"] == 0,
-            data["becinit"],
-            data["areaclosing"]
+            data["areaclosing"] == 0, data["becinit"], data["areaclosing"]
         )
 
         # ----------------------------------------------------------------
@@ -895,7 +910,9 @@ class BECModel(object):
             # read DEM to get crs / width / height etc
             with rasterio.open(os.path.join(self.config["wksp"], "dem.tif")) as src:
                 for i, raster in enumerate(qa_dumps):
-                    out_qa_tif = os.path.join(self.config["wksp"], str(i).zfill(2) + "_" + raster + ".tif")
+                    out_qa_tif = os.path.join(
+                        self.config["wksp"], str(i).zfill(2) + "_" + raster + ".tif"
+                    )
                     with rasterio.open(
                         out_qa_tif,
                         "w",
@@ -910,7 +927,7 @@ class BECModel(object):
                         dst.write(self.data[raster].astype(np.uint16), indexes=1)
             # delete the inital dem/aspect/slope rasters because we
             # dump them to file again above
-            #for raster in ["dem", "slope", "aspect"]:
+            # for raster in ["dem", "slope", "aspect"]:
             #    os.unlink(os.path.join(self.config["wksp"], raster + ".tif"))
 
             # remind user where to find QA data

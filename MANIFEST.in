@@ -1,3 +1,5 @@
 include README.md
 include sample_config.cfg
-include tests/test_config.cfg
+include tests/*.cfg
+include tests/data/*
+include becmodel/data/*
