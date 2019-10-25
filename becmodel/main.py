@@ -89,6 +89,13 @@ class BECModel(object):
         # add shortcut to temp folder
         self.config["wksp"] = self.config["temp_folder"]
 
+        # if becmaster is not provided, use table provided in /data
+        if not self.config["becmaster"]:
+            self.config["becmaster"] = os.path.join(
+                os.path.dirname(__file__), "data/bec_biogeoclimatic_catalogue.csv")
+        if not os.path.exists(self.config["becmaster"]):
+            raise ConfigValueError("BECMaster {} specified in config does not exist.".format(self.config["becmaster"]))
+
     def update_config(self, update_dict, reload=False):
         """Update config dictionary, reloading source data if specified
         """
@@ -178,7 +185,7 @@ class BECModel(object):
                 elif type(defaultconfig[key]) == list:
                     configlog["3_DEFAULT"][key] = ",".join(defaultconfig[key])
                 else:
-                    configlog["3_DEFAULT"][key] = defaultconfig[key]
+                    configlog["3_DEFAULT"][key] = str(defaultconfig[key])
 
         timestamp = self.start_time.isoformat(sep="T", timespec="seconds")
         config_log = f"becmodel-config-log_{timestamp}.txt"
@@ -438,7 +445,9 @@ class BECModel(object):
                     if "TERRAINCACHE" in os.environ.keys():
                         terraincache_path = os.environ["TERRAINCACHE"]
                     else:
-                        terraincache_path = os.path.join(config["wksp"], "terrain-tiles")
+                        terraincache_path = os.path.join(
+                            config["wksp"], "terrain-tiles"
+                        )
                     tt = TerrainTiles(
                         bounds_ll,
                         11,
@@ -662,7 +671,7 @@ class BECModel(object):
                     data["becinit_grouped"],
                 )
 
-        # note high elevation becvalues (to exclude from initial filters)
+        # note original high elevation becvalues
         high_elevation_becvalues = (
             self.high_elevation_dissolves["alpine"]
             + self.high_elevation_dissolves["parkland"]
@@ -689,8 +698,19 @@ class BECModel(object):
             ),
         )
 
+        # to ungroup the high elevation values while retaining the result of
+        # the majority filter, loop through the rule polygons and re-assign
+        # the becvalues
+        data["postmajority"] = data["majority"].copy()
+        for zone in ["alpine", "parkland", "woodland"]:
+            for lookup in [r for r in self.high_elevation_merges if r["type"] == zone]:
+                data["postmajority"][
+                    (data["ruleimg"] == lookup["rule"])
+                    & (data["majority"] == high_elevation_aggregates[zone])
+                ] = lookup["becvalue"]
+
         # ----------------------------------------------------------------
-        # Noise Removal 1 - noisefilter
+        # Basic noise filter
         # Remove holes < the noise_removal_threshold within each zone
         # ----------------------------------------------------------------
         LOG.info("Running noise removal filter")
@@ -704,13 +724,11 @@ class BECModel(object):
         # initialize the output raster for noise filter
         data["noise"] = np.zeros(shape=self.shape, dtype="uint16")
 
-        # process each non zero / high elevation becvalues
-        for becvalue in [
-            v for v in self.beclabel_lookup if v not in [[0] + high_elevation_becvalues]
-        ]:
+        # process each non zero becvalues
+        for becvalue in [v for v in self.beclabel_lookup if v != 0]:
 
             # extract given becvalue
-            X = np.where(data["majority"] == becvalue, 1, 0)
+            X = np.where(data["postmajority"] == becvalue, 1, 0)
 
             # fill holes, remove small objects
             Y = morphology.remove_small_holes(
@@ -724,38 +742,32 @@ class BECModel(object):
             data["noise"] = np.where(Z != 0, becvalue, data["noise"])
 
         # ----------------------------------------------------------------
-        # Noise Removal 2 - areaclosing
-        # Noise on edges of rule polygons is introduced with above process
-        # (removing small holes and then removing small objects leaves holes
-        # of 0 along rule poly edges)
+        # Fill holes introduced by noise filter
+        #
+        # The noise filter removes small holes / objects surrounded by
+        # contiguous zones.
+        # When a small area is bordered by more than 1 becvalue, it does not
+        # get filled and leaves a hole.
+        # Fill these holes using the distance transform (as done with
+        # expansion of rule polys). Restrict the expansion to within the rule
+        # polys only, otherwise the results bleed to the edges of the extent
+        # (note that this removes need for area closing, edges are filled too)
         # ----------------------------------------------------------------
-        LOG.info("Running morphology.area_closing() to clean results of noise filter")
-        data["areaclosing"] = data["noise"].copy()
-        rule_poly_iter = data["rulepolys"].polygon_number.tolist()
-        with click.progressbar(rule_poly_iter) as bar:
-            for rule_poly in bar:
-                # extract image area within the rule poly
-                X = np.where(data["ruleimg"] == rule_poly, data["noise"], 100)
-                Y = morphology.area_closing(
-                    X, noise_threshold, connectivity=config["cell_connectivity"]
-                )
-                data["areaclosing"] = np.where(
-                    (data["ruleimg"] == rule_poly) & (data["noise"] == 0),
-                    Y,
-                    data["areaclosing"],
-                )
-
-        # reinsert the original high elevation values
-        data["postnoise"] = np.where(
-            data["areaclosing"] == 0, data["becinit"], data["areaclosing"]
+        a = np.where(data["noise"] == 0, 1, 0)
+        b, c = ndimage.distance_transform_edt(a, return_indices=True)
+        data["noise_fill"] = np.where(
+            (data["noise"] == 0) & (data["ruleimg"] != 0),
+            data["noise"][c[0], c[1]],
+            data["noise"],
         )
 
         # ----------------------------------------------------------------
-        # Noise Removal 3 - highelevfilter
         # High elevation noise removal
+        # Process alpine / parkland / woodland / high elevation labels
+        # and merge the with the label below if not of sufficent size
         # ----------------------------------------------------------------
         # initialize output image
-        data["highelev"] = data["postnoise"].copy()
+        data["highelev"] = data["noise_fill"].copy()
         # convert high_elevation_removal_threshold value from ha to n cells
         high_elevation_removal_threshold = int(
             (self.config["high_elevation_removal_threshold_ha"] * 10000)
@@ -796,59 +808,6 @@ class BECModel(object):
                 )
 
         # ----------------------------------------------------------------
-        # repeat majority filter
-        # Because the first majority filter slightly reshapes the effective
-        # edges of the rule polys, using the source rule poly raster in the
-        # intermediate steps introduces small noise on the edges. Run
-        # another pass of the majority filter to clean this up. A single size
-        # kernel would probably be fine but lets use the existing variable
-        # size.
-        # ----------------------------------------------------------------
-        # LOG.info("Running majority filter again to tidy edges")
-        # data["majority2"] = np.where(
-        # data["slope"] < config["majority_filter_steep_slope_threshold_percent"],
-        #             majority(
-        #                 data["highelev"],
-        #                 morphology.rectangle(
-        #                     width=self.filtersize_low, height=self.filtersize_low
-        #                 ),
-        #             ),
-        #             majority(
-        #                 data["highelev"],
-        #                 morphology.rectangle(
-        #                     width=self.filtersize_steep, height=self.filtersize_steep
-        #                 ),
-        #             ),
-        #         )
-
-        # ----------------------------------------------------------------
-        # repeat noise filter
-        # Repeating the majority filter can leave small amounts of residual
-        # noise, run a basic noise filter
-        # ----------------------------------------------------------------
-        # initialize the output raster for noise filter
-        LOG.info("Running noise filter again to clean results of majority filter")
-        data["noise2"] = data["highelev"].copy()
-
-        # loop through all becvalues
-        # (first removing the extra zero in the lookup)
-        for becvalue in [v for v in self.beclabel_lookup if v != 0]:
-
-            # extract given becvalue
-            X = np.where(data["highelev"] == becvalue, 1, 0)
-
-            # fill holes, remove small objects
-            Y = morphology.remove_small_holes(
-                X, noise_threshold, connectivity=config["cell_connectivity"]
-            )
-            Z = morphology.remove_small_objects(
-                Y, noise_threshold, connectivity=config["cell_connectivity"]
-            )
-
-            # insert values into output
-            data["noise2"] = np.where(Z != 0, becvalue, data["noise2"])
-
-        # ----------------------------------------------------------------
         # Convert to poly
         # ----------------------------------------------------------------
         fc = FeatureCollection(
@@ -856,7 +815,7 @@ class BECModel(object):
                 Feature(geometry=s, properties={"becvalue": v})
                 for i, (s, v) in enumerate(
                     shapes(
-                        data["noise2"],
+                        data["highelev"],
                         transform=self.transform,
                         connectivity=(config["cell_connectivity"] * 4),
                     )

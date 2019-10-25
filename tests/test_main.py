@@ -48,7 +48,6 @@ def test_reproject_rule_layer():
         },
         reload=True
     )
-    BM.load()
     assert BM.data["rulepolys"].crs["init"].upper() == "EPSG:3005"
 
 
@@ -70,9 +69,27 @@ def test_invalid_cell_size3():
         BM.update_config({"cell_size_metres": 26})
 
 
-def test_load_tables():
+def test_load_elevation():
     BM = BECModel(TESTCONFIG)
     assert BM.data["elevation"].beclabel[0] == "BG  xh 1 "
+
+
+def test_load_becmaster():
+    BM = BECModel(TESTCONFIG)
+    BM.update_config({"becmaster": "tests/data/becmaster_test.csv"}, reload=True)
+    assert BM.data["becmaster"].becvalue[0] == 4
+
+
+def test_load_becmaster_invalid_columns():
+    with pytest.raises(DataValueError):
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"becmaster": "tests/data/becmaster_invalid_cols.csv"}, reload=True)
+
+
+def test_load_becmaster_invalid_data():
+    with pytest.raises(DataValueError):
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"becmaster": "tests/data/becmaster_invalid_data.csv"}, reload=True)
 
 
 def test_load_excel():
@@ -168,19 +185,3 @@ def test_run(tmpdir):
             "BGC_LABEL",
             "AREA_HECTARES",
         ]
-
-
-#def test_robson(tmpdir):
-    """
-    Check for correct alpine processing
-    """
-    #BM = BECModel("tests/test_robson.cfg")
-    #BM.update_config({"temp_folder": str(tmpdir)})
-    #BM.update_config({"out_file": str(os.path.join(tmpdir, "bectest_robson1.gpkg"))})
-    #BM.load()
-    #BM.model()
-    #BM.postfilter()
-    #BM.write()
-#    assert os.path.exists(tmpdir.join("bectest_robson1.gpkg"))
-    # open with geopandas
-    # - check alpine numbers...?

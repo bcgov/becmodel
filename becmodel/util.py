@@ -85,13 +85,22 @@ def load_tables(config):
 
         # -- load becvalue ids
         a = pd.read_csv(
-            os.path.join(
-                os.path.dirname(__file__), "data/bec_biogeoclimatic_catalogue.csv"
-            ),
+            config["becmaster"],
             usecols=[0, 1, 2, 3, 4],
             dtype={"variant": str, "phase": str},
         )
+        # check for required columns
+        becmaster_required_cols = ["biogeoclimatic_catalogue_id", "zone", "subzone", "variant", "phase"]
+        for c in becmaster_required_cols:
+            if c not in a.columns:
+                raise DataValueError("Column {c} does not exist in {bm}".format(c=c, bm=config["becmaster"]))
+
         a = a.rename(columns={"biogeoclimatic_catalogue_id": "becvalue"})
+        # make sure becvalue is unique
+        if len(a[a.duplicated("becvalue")]):
+            dups = list(a[a.duplicated("becvalue")].becvalue)
+            raise DataValueError("Duplicated biogeoclimatic_catalogue_id value(s) found: {}".format(str(dups)))
+
         a.fillna(" ", inplace=True)
         a["beclabel"] = (
             a["zone"].str.pad(4, side="right")
@@ -99,12 +108,12 @@ def load_tables(config):
             + a["variant"]
             + a["phase"]
         )
-        a.set_index("beclabel", inplace=True)
-        data["catalogue"] = a[["becvalue"]]
+        a.set_index("beclabel", inplace=True, verify_integrity=True)
+        data["becmaster"] = a[["becvalue"]]
 
         # apply join, adding becvalue to elevation table
         data["elevation"] = data["elevation"].join(
-            data["catalogue"], lsuffix="_caller", rsuffix="_other"
+            data["becmaster"], lsuffix="_caller", rsuffix="_other"
         )
         data["elevation"].reset_index(inplace=True)
 
