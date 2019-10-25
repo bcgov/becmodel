@@ -11,12 +11,15 @@ from becmodel import BECModel
 @click.option(
     "-v", "--validate", is_flag=True, help="Validate inputs - do not run model"
 )
+@click.option(
+    "-l", "--load", is_flag=True, help="Download input datasets - do not run model"
+)
 @click.option("-o", "--overwrite", is_flag=True, help="Overwrite existing outputs")
 @click.option("-qa", "--qa", is_flag=True, help="Write temp files to disk for QA")
 @click.argument("config_file", type=click.Path(exists=True), required=False)
 @verbose_opt
 @quiet_opt
-def cli(config_file, overwrite, qa, validate, verbose, quiet):
+def cli(config_file, overwrite, qa, validate, load, verbose, quiet):
     verbosity = verbose - quiet
     log_level = max(10, 20 - 10 * verbosity)  # default to INFO log level
     logging.basicConfig(stream=sys.stderr, level=log_level)
@@ -24,6 +27,8 @@ def cli(config_file, overwrite, qa, validate, verbose, quiet):
     BM = BECModel(config_file)
     if validate:
         click.echo("becmodel: data validation successful")
+    elif load:
+        BM.load(overwrite=overwrite)
     else:
         BM.load(overwrite=overwrite)
         BM.model()

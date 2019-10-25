@@ -1,5 +1,6 @@
 import configparser
 import os
+from pathlib import Path
 import logging
 import shutil
 from math import ceil
@@ -392,7 +393,7 @@ class BECModel(object):
         # confirm workspace exists, overwrite if specified
         if overwrite and os.path.exists(config["wksp"]):
             shutil.rmtree(config["wksp"])
-        util.make_sure_path_exists(config["wksp"])
+        Path(config["wksp"]).mkdir(parents=True, exist_ok=True)
 
         # do bounds extend outside of BC?
         bounds_ll = transform_bounds("EPSG:3005", "EPSG:4326", *data["bounds"])
@@ -703,7 +704,7 @@ class BECModel(object):
         # initialize the output raster for noise filter
         data["noise"] = np.zeros(shape=self.shape, dtype="uint16")
 
-        # loop non zero / high elevation becvalues
+        # process each non zero / high elevation becvalues
         for becvalue in [
             v for v in self.beclabel_lookup if v not in [[0] + high_elevation_becvalues]
         ]:

@@ -19,17 +19,6 @@ class DataValueError(Exception):
     """error in input dataset"""
 
 
-def make_sure_path_exists(path):
-    """Make directories in path if they do not exist.
-    Modified from http://stackoverflow.com/a/5032238/1377021
-    :param path: string
-    """
-    try:
-        os.makedirs(path)
-    except:
-        pass
-
-
 def align(bounds):
     """
     Adjust input bounds to align with Hectares BC raster

@@ -119,7 +119,7 @@ class TerrainTiles(object):
             "-ot",
             "Int16",
             "-dstnodata",
-            "-9999",
+            "-32768",
             self.merged,
             out_file,
         ]
