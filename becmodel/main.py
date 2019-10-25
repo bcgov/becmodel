@@ -658,10 +658,16 @@ class BECModel(object):
         # before performing the majority filter, group high elevation
         # labels across rule polygons (alpine, parkland, woodland)
         data["becinit_grouped"] = data["becinit"].copy()
+
+        # define new becvalues for aggregated high elevation labels
+        # generate these dynamically based on current max value because using
+        # arbitrary large values decreases performace of scikit-img rank
+        # filters (majority)
+        max_value = data["becmaster"]["becvalue"].max()
         high_elevation_aggregates = {
-            "alpine": 63000,
-            "parkland": 64000,
-            "woodland": 65000,
+            "alpine": max_value + 1,
+            "parkland": max_value + 2,
+            "woodland": max_value + 3,
         }
         for key in high_elevation_aggregates:
             for becvalue in self.high_elevation_dissolves[key]:
