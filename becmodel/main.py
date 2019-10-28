@@ -867,12 +867,12 @@ class BECModel(object):
 
         self.data = data
 
-    def write(self, qa=False):
+    def write(self, discard_temp=False):
         """ Write outputs to disk
         """
 
-        # if qa specified, dump all intermediate raster data to file
-        if qa:
+        # if not specified otherwise, dump all intermediate raster data to file
+        if not discard_temp:
             # loop through everything loaded to the .data dictionary
             # and write/index if it is a numpy array
             qa_dumps = [d for d in self.data.keys() if type(self.data[d]) == np.ndarray]
