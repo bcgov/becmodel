@@ -89,12 +89,6 @@ class BECModel(object):
         # add shortcut to temp folder
         self.config["wksp"] = self.config["temp_folder"]
 
-        # if becmaster is not provided, use table provided in /data
-        if not self.config["becmaster"]:
-            self.config["becmaster"] = os.path.join(
-                os.path.dirname(__file__), "data/bec_biogeoclimatic_catalogue.csv")
-        if not os.path.exists(self.config["becmaster"]):
-            raise ConfigValueError("BECMaster {} specified in config does not exist.".format(self.config["becmaster"]))
 
     def update_config(self, update_dict, reload=False):
         """Update config dictionary, reloading source data if specified
@@ -162,6 +156,13 @@ class BECModel(object):
             np.mod(np.diff(np.array(self.aspect_zone_midpoints)), 360)
         )
 
+        # validate becmaster is not provided, use table provided in /data
+        if not self.config["becmaster"]:
+            self.config["becmaster"] = os.path.join(
+                os.path.dirname(__file__), "data/bec_biogeoclimatic_catalogue.csv")
+        if not os.path.exists(self.config["becmaster"]):
+            raise ConfigValueError("BECMaster {} specified in config does not exist.".format(self.config["becmaster"]))
+
     def write_config_log(self):
         """dump configs to file"""
         configlog = configparser.ConfigParser()
@@ -175,7 +176,7 @@ class BECModel(object):
             elif type(defaultconfig[key]) == list:
                 configlog["2_USER"][key] = ",".join(self.user_config[key])
             else:
-                configlog["2_USER"][key] = defaultconfig[key]
+                configlog["2_USER"][key] = str(self.user_config[key])
 
         configlog["3_DEFAULT"] = {}
         for key in defaultconfig:
@@ -189,6 +190,7 @@ class BECModel(object):
 
         timestamp = self.start_time.isoformat(sep="T", timespec="seconds")
         config_log = f"becmodel-config-log_{timestamp}.txt"
+        LOG.info(f"Logging config to here: {config_log}")
         with open(config_log, "w") as configfile:
             configlog.write(configfile)
 
@@ -884,14 +886,15 @@ class BECModel(object):
                         out_qa_tif,
                         "w",
                         driver="GTiff",
-                        dtype=rasterio.uint16,
+                        dtype=rasterio.int16,
                         count=1,
                         width=src.width,
                         height=src.height,
                         crs=src.crs,
                         transform=src.transform,
+                        nodata=src.nodata
                     ) as dst:
-                        dst.write(self.data[raster].astype(np.uint16), indexes=1)
+                        dst.write(self.data[raster].astype(np.int16), indexes=1)
             # delete the inital dem/aspect/slope rasters because we
             # dump them to file again above
             # for raster in ["dem", "slope", "aspect"]:

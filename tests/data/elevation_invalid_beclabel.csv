@@ -1,0 +1,5 @@
+beclabel,cool_low,cool_high,neutral_low,neutral_high,warm_low,warm_high,polygon_number
+MS  xk 1,1400,10000,1425,10000,1450,10000,301
+IDF xh 1,875,1400,925,1425,950,1450,301
+PP  xh 1,525,875,525,925,525,950,301
+BG  xh1,0,525,0,525,0,525,301
