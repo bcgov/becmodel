@@ -176,8 +176,8 @@ def test_run(tmpdir):
     BM.model()
     BM.postfilter()
     BM.write()
-    assert os.path.exists(tmpdir.join("dem.tif"))
-    assert os.path.exists(tmpdir.join("aspect.tif"))
+    assert os.path.exists(tmpdir.join("00_dem.tif"))
+    assert os.path.exists(tmpdir.join("02_aspect.tif"))
     assert os.path.exists(tmpdir.join("bectest.gpkg"))
     assert fiona.listlayers(os.path.join(tmpdir, "bectest.gpkg")) == ["becmodel"]
     with fiona.open(os.path.join(tmpdir, "bectest.gpkg")) as output:

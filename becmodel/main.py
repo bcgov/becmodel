@@ -900,8 +900,8 @@ class BECModel(object):
                         dst.write(self.data[raster].astype(np.int16), indexes=1)
             # delete the inital dem/aspect/slope rasters because we
             # dump them to file again above
-            # for raster in ["dem", "slope", "aspect"]:
-            #    os.unlink(os.path.join(self.config["wksp"], raster + ".tif"))
+            for raster in ["dem", "slope", "aspect"]:
+                os.unlink(os.path.join(self.config["wksp"], raster + ".tif"))
 
             # remind user where to find QA data
             LOG.info("QA files are here: {}".format(self.config["temp_folder"]))
