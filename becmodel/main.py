@@ -399,6 +399,8 @@ class BECModel(object):
         # align to Hectares BC raster
         data["bounds"] = util.align(expanded_bounds)
 
+        LOG.info("Bounds: "+" ".join([str(b) for b in data["bounds"]]))
+
         # confirm workspace exists, overwrite if specified
         if overwrite and os.path.exists(config["wksp"]):
             shutil.rmtree(config["wksp"])
@@ -451,9 +453,10 @@ class BECModel(object):
                             config["wksp"], "terrain-tiles"
                         )
                     tt = TerrainTiles(
-                        bounds_ll,
+                        data["bounds"],
                         11,
                         cache_dir=terraincache_path,
+                        bounds_crs="EPSG:3005",
                         dst_crs="EPSG:3005",
                         resolution=config["cell_size_metres"],
                     )

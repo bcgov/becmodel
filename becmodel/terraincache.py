@@ -106,14 +106,24 @@ class TerrainTiles(object):
             self.merged = out_file
 
     def warp(self, out_file=None):
-        """reproject, resample, convert to int16, -9999 as nodata
+        """reproject, resample, convert to int16
         """
         if not out_file:
             out_file = os.path.join(str(self.tempfolder), "warped.vrt")
+        if self.bounds_crs != self.dst_crs:
+            target_extent = transform_bounds(self.bounds_crs, self.dst_crs, *self.bounds)
+            te = [str(t) for t in target_extent]
+        else:
+            te = [str(t) for t in self.bounds]
         cmd = [
             "gdalwarp",
             "-t_srs",
             self.dst_crs,
+            "-te",
+            te[0],
+            te[1],
+            te[2],
+            te[3],
             "-r",
             "cubic",
             "-ot",
@@ -124,7 +134,8 @@ class TerrainTiles(object):
             out_file,
         ]
         if self.resolution:
-            cmd.extend(["-tr", str(self.resolution), str(self.resolution), "-tap"])
+            cmd.extend(["-tr", str(self.resolution), str(self.resolution)])
+        LOG.debug(" ".join(cmd))
         subprocess.run(cmd)
         self.warped = str(out_file)
 
