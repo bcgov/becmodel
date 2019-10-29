@@ -189,6 +189,8 @@ class BECModel(object):
                     configlog["3_DEFAULT"][key] = str(defaultconfig[key])
 
         timestamp = self.start_time.isoformat(sep="T", timespec="seconds")
+        # windows does not support ISO datestamps (:)
+        timestamp = timestamp.replace(':', '-')
         config_log = f"becmodel-config-log_{timestamp}.txt"
         LOG.info(f"Logging config to here: {config_log}")
         with open(config_log, "w") as configfile:

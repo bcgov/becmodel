@@ -99,7 +99,7 @@ On GTS, open a `Python Command Prompt` window and activate the `becenv` conda en
 Consider navigating to your project folder, eg:
 
         (becenv)> W:
-        (becenv)> cd W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\becmodel
+        (becenv)> cd W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\robson
 
 Finally, run the `becmodel` script with the path to your config file as an argument to the script:
 

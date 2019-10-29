@@ -1,25 +1,24 @@
 # Build the conda environment on GTS
 
-Get latest becmodel code:
+Get latest becmodel code from github using a web browser, or from a `bash` command line:
 
     git clone https://github.com/smnorris/becmodel.git
+
+Open a `Python Command Prompt` and create a folder for writing conda packages - we don't want to write conda packages to our user profile, this gets *very* big, corrupting the user profile. For example:
+
+    W:
+    cd W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019
+    mkdir conda_pkgs
     cd becmodel
-
-Create conda environment:
-
     conda create -p becenv -y
     activate W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\becmodel\becenv
-
-Add conda-forge channel and make sure we don't write packages to user profile (this gets *very* big, corrupting the user profile)
-
+    conda config --env --add pkgs_dirs W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\conda_pkgs
     conda config --env --add channels conda-forge
-    mkdir becenv\pkgs
-    conda config --env --add pkgs_dirs W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\becmodel\becenv\pkgs
 
 Install required packages and becmodel itself:
 
-    conda install click numpy gdal rasterio fiona pandas geopandas geojson xlrd scipy -y
-    pip install https://www.hillcrestgeo.ca/outgoing/public/scikit_image-0.16.dev0-cp37-cp37m-win_amd64.whl
+    conda install click gdal numpy pandas fiona rasterio geopandas geojson scikit-image xlrd cligj mercantile -y
+    pip install bcdata
     pip install -e .
 
 Reactivate the environment so that the gdal and proj environment variables are set:
