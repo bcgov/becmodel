@@ -98,14 +98,6 @@ def test_load_excel():
     assert BM.data["elevation"].beclabel[0] == "BG  xh 1 "
 
 
-def test_prefilter(tmpdir):
-    BM = BECModel("tests/test.cfg")
-    BM.update_config({"temp_folder": str(tmpdir)})
-    BM.update_config({"dem_prefilter": "True"})
-    BM.load()
-    assert os.path.exists(tmpdir.join("dem_filtered.tif"))
-
-
 # invalid types in rule polys
 def test_load_invalid_rulepolys():
     with pytest.raises(DataValueError):
@@ -142,9 +134,9 @@ def test_load_terraintile_elevation(tmpdir):
         reload=True
     )
     BM.load()
-    assert os.path.exists(tmpdir.join("dem_bc.tif"))
-    assert os.path.exists(tmpdir.join("dem_exbc.tif"))
-    assert os.path.exists(tmpdir.join("dem.tif"))
+    assert os.path.exists(tmpdir.join("src", "dem_bc.tif"))
+    assert os.path.exists(tmpdir.join("src", "dem_exbc.tif"))
+    assert os.path.exists(tmpdir.join("src", "dem.tif"))
 
 
 def test_load_invalid_elevation_bands():

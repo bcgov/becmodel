@@ -406,7 +406,11 @@ class BECModel(object):
         # confirm workspace exists, overwrite if specified
         if overwrite and os.path.exists(config["wksp"]):
             shutil.rmtree(config["wksp"])
-        Path(config["wksp"]).mkdir(parents=True, exist_ok=True)
+        # create workspace and a subfolder for the non-numbered rasters
+        # (so that they can be cached for repeated model runs on the same
+        # study area)
+        srcpath = os.path.join(config["wksp"], "src")
+        Path(srcpath).mkdir(parents=True, exist_ok=True)
 
         # do bounds extend outside of BC?
         bounds_ll = transform_bounds("EPSG:3005", "EPSG:4326", *data["bounds"])
@@ -430,7 +434,7 @@ class BECModel(object):
         outside_bc = gpd.overlay(neighbours, bounds_gdf, how="intersection")
 
         # if nothing in bbox is outside bc, just grab bc dem as dem.tif
-        dempath = os.path.join(config["wksp"], "dem.tif")
+        dempath = os.path.join(srcpath, "dem.tif")
         if not os.path.exists(dempath):
             if outside_bc.empty is True:
                 bcdata.get_dem(
@@ -439,8 +443,8 @@ class BECModel(object):
             # if the bbox does extend outside of BC, then grab both BC
             # and terrain-tiles and combine the sources into dem.tif
             else:
-                dem_bc = os.path.join(config["wksp"], "dem_bc.tif")
-                dem_exbc = os.path.join(config["wksp"], "dem_exbc.tif")
+                dem_bc = os.path.join(srcpath, "dem_bc.tif")
+                dem_exbc = os.path.join(srcpath, "dem_exbc.tif")
                 if not os.path.exists(dem_bc):
                     bcdata.get_dem(
                         data["bounds"], dem_bc, resolution=config["cell_size_metres"]
@@ -491,47 +495,27 @@ class BECModel(object):
             self.transform = src.transform
             data["dem"] = src.read(1)
 
-        # because slope and aspect are always derived from a file DEM,
-        # provide an option to pre-filter the DEM used for aspect generation
-        if config["dem_prefilter"] is True:
-            aspect_dem = os.path.join(config["wksp"], "dem_filtered.tif")
-            data["dem_filtered"] = mean(
-                data["dem"].astype(np.uint16), morphology.disk(3)
-            )
-            with rasterio.open(
-                aspect_dem,
-                "w",
-                driver="GTiff",
-                dtype=rasterio.uint16,
-                count=1,
-                width=src.width,
-                height=src.height,
-                crs=src.crs,
-                transform=src.transform,
-            ) as dst:
-                dst.write(self.data["dem_filtered"], indexes=1)
-        else:
-            aspect_dem = os.path.join(config["wksp"], "dem.tif")
-
         # generate slope and aspect
-        if not os.path.exists(os.path.join(config["wksp"], "slope.tif")):
+        if not os.path.exists(os.path.join(srcpath, "slope.tif")):
             gdal.DEMProcessing(
-                os.path.join(config["wksp"], "slope.tif"),
-                os.path.join(config["wksp"], "dem.tif"),
+                os.path.join(srcpath, "slope.tif"),
+                os.path.join(srcpath, "dem.tif"),
                 "slope",
                 slopeFormat="percent",
             )
-        if not os.path.exists(os.path.join(config["wksp"], "aspect.tif")):
+        if not os.path.exists(os.path.join(srcpath, "aspect.tif")):
             gdal.DEMProcessing(
-                os.path.join(config["wksp"], "aspect.tif"), aspect_dem, "aspect"
+                os.path.join(srcpath, "aspect.tif"),
+                os.path.join(srcpath, "dem.tif"),
+                "aspect"
             )
 
         # load slope from file
-        with rasterio.open(os.path.join(config["wksp"], "slope.tif")) as src:
+        with rasterio.open(os.path.join(srcpath, "slope.tif")) as src:
             data["slope"] = src.read(1)
 
         # load aspect and convert to unsigned integer
-        with rasterio.open(os.path.join(config["wksp"], "aspect.tif")) as src:
+        with rasterio.open(os.path.join(srcpath, "aspect.tif")) as src:
             data["aspect"] = src.read(1).astype(np.uint16)
 
         # We consider slopes less that 15% to be neutral.
@@ -882,7 +866,7 @@ class BECModel(object):
             # and write/index if it is a numpy array
             qa_dumps = [d for d in self.data.keys() if type(self.data[d]) == np.ndarray]
             # read DEM to get crs / width / height etc
-            with rasterio.open(os.path.join(self.config["wksp"], "dem.tif")) as src:
+            with rasterio.open(os.path.join(self.config["wksp"], "src", "dem.tif")) as src:
                 for i, raster in enumerate(qa_dumps):
                     out_qa_tif = os.path.join(
                         self.config["wksp"], str(i).zfill(2) + "_" + raster + ".tif"
@@ -900,10 +884,6 @@ class BECModel(object):
                         nodata=src.nodata
                     ) as dst:
                         dst.write(self.data[raster].astype(np.int16), indexes=1)
-            # delete the inital dem/aspect/slope rasters because we
-            # dump them to file again above
-            for raster in ["dem", "slope", "aspect"]:
-                os.unlink(os.path.join(self.config["wksp"], raster + ".tif"))
 
             # remind user where to find QA data
             LOG.info("QA files are here: {}".format(self.config["temp_folder"]))
