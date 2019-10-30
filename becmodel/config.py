@@ -26,7 +26,7 @@ defaultconfig = {
     # Areas to be aggregated/removed via 'high_elevation_removal_threshold'
     # to find Alpine, match beclabel first four characters
     # to find Parkland and Woodland, match beclabel seventh character
-    "high_elevation_removal_threshold_alpine": ["AT", "BAFA", "CMA", "IMA"],
+    "high_elevation_removal_threshold_alpine": ["BAFA", "CMA", "IMA"],
     "high_elevation_removal_threshold_parkland": ["p", "s"],
     "high_elevation_removal_threshold_woodland": ["w"],
 }
