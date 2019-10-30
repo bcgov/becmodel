@@ -25,7 +25,7 @@ Alternatively, install with `pip` if you are comfortable with managing your Pyth
 Note that if you are installing via pip on Windows, you will need to manually download and install the correct pre-compiled wheels for [`gdal`, `fiona` and `rasterio`](https://www.lfd.uci.edu/~gohlke/pythonlibs/#gdal) before installing `becmodel`.
 
 
-## Usage
+## Data Prep
 
 Before running the script, prepare the required files listed below:
 
@@ -40,7 +40,7 @@ A polygon layer where each polygon represents a unique combination of elevations
 
 All internal files and outputs are in the BC Albers (`EPSG:3005`) coordinate system, the tool will attempt to reproject the input rule polygons to BC Albers if the provided layer uses some other coordinate system.
 
-See [example rule polygon layer](examples/robson/rulepolys.geojson)
+See [example rule polygon layer](tests/data/rulepolys_4326.geojson)
 
 ### 2. Elevation table
 
@@ -64,15 +64,12 @@ See [example elevation file](examples/robson/elevation.csv)
 
 A text [initialization file](https://docs.python.org/3/library/configparser.html#supported-ini-file-structure) that defines the parameters for the model run, overriding the defaults. The file must include the `[CONFIG]` section header. The file may have any file name or extension - file extensions `ini`, `cfg`, `txt` are all valid.
 
-See example config files:
-
-- [Example 1 - all available parameters](sample_config.cfg)
-- [Example 2 - project specific](examples/robson/robson.cfg)
+See this [example config file](sample_config.cfg) listing all configuration parameters.  The config file does not have to contain all parameters, you only need to include those where you do not wish to use the [default value](becmodel/config.py).
 
 
-### 4. Optional - `bec_biogeoclimatic_catalogue.csv`
+### 4. `bec_biogeoclimatic_catalogue.csv` (optional)
 
-If your project contains beclabels not already in the warehouse, define the new beclabels in this file. The file is available to download via the [DataBC Catalogue](https://catalogue.data.gov.bc.ca/dataset/bec-map-attribute-catalogue) or [from this code repository](becmodel/data/bec_biogeoclimatic_catalogue.csv). Modify the table as required if creating new beclabels. To use this file, you must define the `becmaster` key in your config file as the full path to this file on the system. For example:
+If your project contains BEC labels/values not already in the provincial table in the BCGW (`WHSE_FOREST_VEGETATION.BEC_BIOGEOCLIMATIC_CATALOGUE`), define the new labels/values in this file. The source file is available to download via the [DataBC Catalogue](https://catalogue.data.gov.bc.ca/dataset/bec-map-attribute-catalogue) and a static version is included in [becmodel/data/bec_biogeoclimatic_catalogue.csv](becmodel/data/bec_biogeoclimatic_catalogue.csv). Modify the table as required if creating new labels/values. To use this file, you must define the `becmaster` key in your config file as the full path to this file on the system. For example, the config would look something like this:
 
 `becmaster = C:\projects\bec\custom_bec_master.csv`
 
@@ -85,12 +82,9 @@ This file must:
     + `subzone`
     + `variant`
     + `phase`
-- beclabel (combined `zone`/`subzone`/`variant`/`phase`) values must contain all beclabels present in your project
-- beclabel (combined `zone`/`subzone`/`variant`/`phase`) values must be unique
-- `biogeoclimatic_catalogue_id` values must be unique
+- beclabel (combined `zone`/`subzone`/`variant`/`phase`) values must be unique and contain all beclabels present in your project
 
-
-###  Running the model
+##  Running the model
 
 On GTS, open a `Python Command Prompt` window and activate the `becenv` conda environment:
 
@@ -99,37 +93,41 @@ On GTS, open a `Python Command Prompt` window and activate the `becenv` conda en
 Consider navigating to your project folder, eg:
 
         (becenv)> W:
-        (becenv)> cd W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\robson
+        (becenv)> cd W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\sample_projects\robson
 
 Finally, run the `becmodel` script with the path to your config file as an argument to the script:
 
 
-    (becenv)> becmodel tests/test.cfg
-    becmodel.main INFO     Downloading and processing DEM
-    becmodel.main INFO     Generating initial becvalue raster
-    becmodel.main INFO     Running majority filter
-    becmodel.main INFO     Running noise removal filter
-    becmodel.main INFO     Running morphology.area_closing() to clean results of noise filter
-    becmodel.main INFO     Running high_elevation_removal_threshold on alpine
-    becmodel.main INFO     Running high_elevation_removal_threshold on parkland
-    becmodel.main INFO     Running high_elevation_removal_threshold on woodland
-    becmodel.main INFO     Running majority filter again to tidy edges
-    becmodel.main INFO     Running noise filter again to clean results of majority filter
-    becmodel.main INFO     Output bectest.gpkg created
+    (becenv)> becmodel robson_mini.cfg
+    2019-10-30 12:27:27,399 becmodel.main INFO     Initializing BEC model v0.1.0dev0
+    2019-10-30 12:27:27,399 becmodel.main INFO     Loading config from file: robson_mini.cfg
+    2019-10-30 12:27:27,480 becmodel.util INFO     Input data is not specified as BC Albers, attempting to reproject
+    2019-10-30 12:27:27,659 becmodel.main INFO     Temp data are here: tempdata
+    2019-10-30 12:27:27,661 becmodel.main INFO     Downloading and processing DEM
+    2019-10-30 12:27:27,661 becmodel.main INFO     Bounds: 1341987.5 916287.5 1374787.5 938787.5
+    2019-10-30 12:27:32,280 becmodel.main INFO     Generating initial becvalue raster:
+    2019-10-30 12:27:32,655 becmodel.main INFO     Running majority filter
+    2019-10-30 12:27:32,812 becmodel.main INFO     Running noise removal filter
+    2019-10-30 12:27:32,976 becmodel.main INFO     Running high_elevation_removal_threshold on alpine
+    2019-10-30 12:27:33,021 becmodel.main INFO     Running high_elevation_removal_threshold on parkland
+    2019-10-30 12:27:33,065 becmodel.main INFO     Running high_elevation_removal_threshold on woodland
+    2019-10-30 12:27:33,606 becmodel.main INFO     QA files are here: tempdata
+    2019-10-30 12:27:33,687 becmodel.main INFO     Logging config to here: becmodel-config-log_2019-10-30T12-27-27.txt
+    2019-10-30 12:27:33,687 becmodel.main INFO     Output robson_mini.gpkg created
 
-Temporary files (`dem.tif`, `aspect.tif` etc) are written to the folder `tempdata`,
-or as specified by the `temp_folder` key in the config file.
+Temporary files are written to the folder specified by the `temp_folder` key in the config file. The script writes all configuration options used for the model run to a text file named: `becmodel-config-log_<DATE>T<TIME>.txt`
 
-The script includes several options:
+The script includes several options, `becmodel --help` lists them all:
 
-    (becenv)>becmodel --help
+    (becenv)> becmodel --help
     Usage: becmodel [OPTIONS] [CONFIG_FILE]
 
     Options:
-      -dr, --dry_run, --dry-run  Validate inputs - do not run model
-      -l, --load                 Download input datasets - do not run model
-      -o, --overwrite            Overwrite existing outputs
-      -qa, --qa                  Write temp files to disk for QA
-      -v, --verbose              Increase verbosity.
-      -q, --quiet                Decrease verbosity.
-      --help                     Show this message and exit.
+      -dr, --dry_run, --dry-run       Validate inputs - do not run model
+      -l, --load                      Download input datasets - do not run model
+      -o, --overwrite                 Overwrite existing outputs
+      -d, --discard-temp, --discard_temp
+                                      Do not write temp files to disk
+      -v, --verbose                   Increase verbosity.
+      -q, --quiet                     Decrease verbosity.
+      --help                          Show this message and exit.
