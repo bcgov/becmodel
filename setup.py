@@ -28,7 +28,7 @@ requires = [
     "scikit-image",
     "xlrd",
     "cligj",
-    "mercantile"
+    "mercantile",
 ]
 
 setup(

@@ -90,16 +90,30 @@ def load_tables(config):
             dtype={"variant": str, "phase": str},
         )
         # check for required columns
-        becmaster_required_cols = ["biogeoclimatic_catalogue_id", "zone", "subzone", "variant", "phase"]
+        becmaster_required_cols = [
+            "biogeoclimatic_catalogue_id",
+            "zone",
+            "subzone",
+            "variant",
+            "phase",
+        ]
         for c in becmaster_required_cols:
             if c not in a.columns:
-                raise DataValueError("Column {c} does not exist in {bm}".format(c=c, bm=config["becmaster"]))
+                raise DataValueError(
+                    "Column {c} does not exist in {bm}".format(
+                        c=c, bm=config["becmaster"]
+                    )
+                )
 
         a = a.rename(columns={"biogeoclimatic_catalogue_id": "becvalue"})
         # make sure becvalue is unique
         if len(a[a.duplicated("becvalue")]):
             dups = list(a[a.duplicated("becvalue")].becvalue)
-            raise DataValueError("Duplicated biogeoclimatic_catalogue_id value(s) found: {}".format(str(dups)))
+            raise DataValueError(
+                "Duplicated biogeoclimatic_catalogue_id value(s) found: {}".format(
+                    str(dups)
+                )
+            )
 
         a.fillna(" ", inplace=True)
         a["beclabel"] = (

@@ -89,7 +89,6 @@ class BECModel(object):
         # add shortcut to temp folder
         self.config["wksp"] = self.config["temp_folder"]
 
-
     def update_config(self, update_dict, reload=False):
         """Update config dictionary, reloading source data if specified
         """
@@ -159,9 +158,14 @@ class BECModel(object):
         # validate becmaster is not provided, use table provided in /data
         if not self.config["becmaster"]:
             self.config["becmaster"] = os.path.join(
-                os.path.dirname(__file__), "data/bec_biogeoclimatic_catalogue.csv")
+                os.path.dirname(__file__), "data/bec_biogeoclimatic_catalogue.csv"
+            )
         if not os.path.exists(self.config["becmaster"]):
-            raise ConfigValueError("BECMaster {} specified in config does not exist.".format(self.config["becmaster"]))
+            raise ConfigValueError(
+                "BECMaster {} specified in config does not exist.".format(
+                    self.config["becmaster"]
+                )
+            )
 
     def write_config_log(self):
         """dump configs to file"""
@@ -190,7 +194,7 @@ class BECModel(object):
 
         timestamp = self.start_time.isoformat(sep="T", timespec="seconds")
         # windows does not support ISO datestamps (:)
-        timestamp = timestamp.replace(':', '-')
+        timestamp = timestamp.replace(":", "-")
         config_log = f"becmodel-config-log_{timestamp}.txt"
         LOG.info(f"Logging config to here: {config_log}")
         with open(config_log, "w") as configfile:
@@ -401,7 +405,7 @@ class BECModel(object):
         # align to Hectares BC raster
         data["bounds"] = util.align(expanded_bounds)
 
-        LOG.info("Bounds: "+" ".join([str(b) for b in data["bounds"]]))
+        LOG.info("Bounds: " + " ".join([str(b) for b in data["bounds"]]))
 
         # confirm workspace exists, overwrite if specified
         if overwrite and os.path.exists(config["wksp"]):
@@ -507,7 +511,7 @@ class BECModel(object):
             gdal.DEMProcessing(
                 os.path.join(srcpath, "aspect.tif"),
                 os.path.join(srcpath, "dem.tif"),
-                "aspect"
+                "aspect",
             )
 
         # load slope from file
@@ -866,7 +870,9 @@ class BECModel(object):
             # and write/index if it is a numpy array
             qa_dumps = [d for d in self.data.keys() if type(self.data[d]) == np.ndarray]
             # read DEM to get crs / width / height etc
-            with rasterio.open(os.path.join(self.config["wksp"], "src", "dem.tif")) as src:
+            with rasterio.open(
+                os.path.join(self.config["wksp"], "src", "dem.tif")
+            ) as src:
                 for i, raster in enumerate(qa_dumps):
                     out_qa_tif = os.path.join(
                         self.config["wksp"], str(i).zfill(2) + "_" + raster + ".tif"
@@ -881,7 +887,7 @@ class BECModel(object):
                         height=src.height,
                         crs=src.crs,
                         transform=src.transform,
-                        nodata=src.nodata
+                        nodata=src.nodata,
                     ) as dst:
                         dst.write(self.data[raster].astype(np.int16), indexes=1)
 

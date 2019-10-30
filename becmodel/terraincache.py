@@ -111,7 +111,9 @@ class TerrainTiles(object):
         if not out_file:
             out_file = os.path.join(str(self.tempfolder), "warped.vrt")
         if self.bounds_crs != self.dst_crs:
-            target_extent = transform_bounds(self.bounds_crs, self.dst_crs, *self.bounds)
+            target_extent = transform_bounds(
+                self.bounds_crs, self.dst_crs, *self.bounds
+            )
             te = [str(t) for t in target_extent]
         else:
             te = [str(t) for t in self.bounds]
