@@ -62,9 +62,9 @@ See [example elevation file](examples/robson/elevation.csv)
 
 ### 3. Configuration / initialization file
 
-A text [initialization file](https://docs.python.org/3/library/configparser.html#supported-ini-file-structure) that defines the parameters for the model run, overriding the defaults. The file must include the `[CONFIG]` section header. The file may have any file name or extension - file extensions `ini`, `cfg`, `txt` are all valid.
+A text [initialization file](https://docs.python.org/3/library/configparser.html#supported-ini-file-structure) that defines the parameters for the model run, overriding the defaults. The file must include the `[CONFIG]` section header. The file may have any file name or extension - file extensions `ini`, `cfg`, `txt` are all valid. Note that the config file does not have to contain all parameters, you only need to include those where you do not wish to use the [default values](becmodel/config.py).
 
-See this [example config file](sample_config.cfg) listing all configuration parameters.  The config file does not have to contain all parameters, you only need to include those where you do not wish to use the [default value](becmodel/config.py).
+See [example config file](sample_config.cfg) listing all configuration parameters.
 
 
 ### 4. `bec_biogeoclimatic_catalogue.csv` (optional)
@@ -82,7 +82,7 @@ This file must:
     + `subzone`
     + `variant`
     + `phase`
-- beclabel (combined `zone`/`subzone`/`variant`/`phase`) values must be unique and contain all beclabels present in your project
+- have beclabel values (combined `zone`/`subzone`/`variant`/`phase`) that are unique and contain all beclabels present in your elevation table
 
 ##  Running the model
 
