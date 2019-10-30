@@ -14,7 +14,7 @@ from becmodel import BECModel
 @click.option(
     "-l", "--load", is_flag=True, help="Download input datasets - do not run model"
 )
-@click.option("-o", "--overwrite", is_flag=True, help="Overwrite existing outputs")
+@click.option("-o", "--overwrite", is_flag=True, help="Overwrite any existing DEM, aspect, slope files")
 @click.option("-d", "--discard-temp", "--discard_temp", is_flag=True, help="Do not write temp files to disk")
 @click.argument("config_file", type=click.Path(exists=True), required=False)
 @verbose_opt

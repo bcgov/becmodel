@@ -125,7 +125,8 @@ The script includes several options, `becmodel --help` lists them all:
     Options:
       -dr, --dry_run, --dry-run       Validate inputs - do not run model
       -l, --load                      Download input datasets - do not run model
-      -o, --overwrite                 Overwrite existing outputs
+      -o, --overwrite                 Overwrite any existing DEM, aspect, slope
+                                      files
       -d, --discard-temp, --discard_temp
                                       Do not write temp files to disk
       -v, --verbose                   Increase verbosity.
