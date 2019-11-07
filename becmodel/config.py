@@ -7,6 +7,7 @@ defaultconfig = {
     "rulepolys_layer": "rulepolys",
     "elevation": "elevation.xls",
     "becmaster": None,
+    "dem": None,
     "temp_folder": tempfile.mkdtemp(prefix="becmodel-"),
     "out_file": "becmodel.gpkg",
     "out_layer": "becmodel",

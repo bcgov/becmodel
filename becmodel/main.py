@@ -15,7 +15,7 @@ from osgeo import gdal
 import numpy as np
 import geopandas as gpd
 from geojson import Feature, FeatureCollection
-from skimage.filters.rank import majority, mean
+from skimage.filters.rank import majority
 import skimage.morphology as morphology
 import click
 from scipy import ndimage
@@ -166,6 +166,16 @@ class BECModel(object):
                     self.config["becmaster"]
                 )
             )
+        # is DEM path provided? If so, validate file exists
+        # (no validation that it actually overlaps the rule polygons, we
+        # will presume that the user has that under control)
+        if self.config["dem"]:
+            if not os.path.exists(self.config["dem"]):
+                raise ConfigValueError(
+                    "DEM file {} specified in config does not exist.".format(
+                        self.config["dem"]
+                    )
+                )
 
     def write_config_log(self):
         """dump configs to file"""
@@ -392,8 +402,6 @@ class BECModel(object):
             )
         )
 
-        LOG.info("Downloading and processing DEM")
-
         # get bounds from gdf and bump out by specified expansion
         bounds = list(data["rulepolys"].geometry.total_bounds)
         xmin = bounds[0] - config["expand_bounds_metres"]
@@ -437,9 +445,18 @@ class BECModel(object):
         )
         outside_bc = gpd.overlay(neighbours, bounds_gdf, how="intersection")
 
-        # if nothing in bbox is outside bc, just grab bc dem as dem.tif
-        dempath = os.path.join(srcpath, "dem.tif")
-        if not os.path.exists(dempath):
+        # use file based dem if provided in config
+        if config["dem"]:
+            LOG.info("Using DEM: {}".format(config["dem"]))
+            dempath = config["dem"]
+        else:
+            dempath = os.path.join(srcpath, "dem.tif")
+
+        # We cache the result of WCS / terraintiles requests, so only
+        # rerun if the file is not present
+        if not config["dem"] and not os.path.join(srcpath, "dem.tif"):
+            LOG.info("Downloading and processing DEM")
+            # If nothing in bbox is outside bc, just grab bc dem as dem.tif
             if outside_bc.empty is True:
                 bcdata.get_dem(
                     data["bounds"], dempath, resolution=config["cell_size_metres"]

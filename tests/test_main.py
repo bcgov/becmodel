@@ -156,6 +156,20 @@ def test_load_invalid_elevation_bands():
         util.validate_data(BM.data)
 
 
+def test_invalid_dem_path():
+    with pytest.raises(ConfigValueError):
+        BM = BECModel(TESTCONFIG)
+        BM.update_config({"dem": "tests/data/dem_does_not_exit.tif"})
+
+
+def test_local_dem(tmpdir):
+    """Test loading dem from local file path
+    """
+    BM = BECModel(TESTCONFIG)
+    BM.update_config({"dem": "tests/data/dem.tif"})
+    BM.load()
+
+
 def test_run(tmpdir):
     """
     Check that outputs are created and properly structured

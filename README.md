@@ -84,6 +84,26 @@ This file must:
     + `phase`
 - have beclabel values (combined `zone`/`subzone`/`variant`/`phase`) that are unique and contain all beclabels present in your elevation table
 
+### 5. DEM (optional)
+
+By default, the model downloads TRIM DEM data as geotiff from the `bc_elevation_25m_bcalb` in the [BC Web Coverage Service](https://delivery.openmaps.gov.bc.ca/om/wcs) (WCS) as needed. When necessary, it will also default to downloading DEM data outside of BC from the Mapzen [`terrain-tiles`](http://s3.amazonaws.com/elevation-tiles-prod/geotiff).
+
+To use a custom DEM, add the `dem` key to your configuration file, with the full path to your custom DEM file as the value. Any raster file format supported by GDAL should work.
+
+**Custom DEM notes**
+
+`becmodel` does not check to see if the profile of the provided DEM matches the related keys in your config. Because all `becmodel` processing is based on the DEM, you should manually:
+
+- ensure your DEM covers your area of interest plus config `expand_bounds_metres`
+- resample your DEM to a resolution that matches config `cell_size_metres`
+- reproject your DEM to BC Albers (`EPSG:3005`)
+- align your DEM to the HectaresBC grid default
+
+For example, see [`scripts/create_test_dem.sh`](scripts/create_test_dem).
+
+Also note that if a DEM file is provided to `becmodel` config, `becmodel` will not attempt to download non-BC data from Mapzen terrain-tiles. If you require elevation data outside of BC, integrate it into your DEM before running the model.
+
+
 ##  Running the model
 
 On GTS, open a `Python Command Prompt` window and activate the `becenv` conda environment:
