@@ -105,7 +105,7 @@ class TerrainTiles(object):
             subprocess.run(cmd)
             self.merged = out_file
 
-    def warp(self, out_file=None):
+    def warp(self, out_file=None, resample="bilinear"):
         """reproject, resample, convert to int16
         """
         if not out_file:
@@ -127,7 +127,7 @@ class TerrainTiles(object):
             te[2],
             te[3],
             "-r",
-            "cubic",
+            resample,
             "-ot",
             "Int16",
             "-dstnodata",
