@@ -465,9 +465,7 @@ class BECModel(object):
                 # request at native resolution and resample locally
                 # because requesting a bilinear resampled DEM is slow
                 bcdata.get_dem(
-                    data["bounds"],
-                    os.path.join(srcpath, "dem_bc25.tif"),
-                    resolution=25
+                    data["bounds"], os.path.join(srcpath, "dem_bc25.tif"), resolution=25
                 )
                 # resample if "cell_size_metres" is not 25m
                 if config["cell_size_metres"] != 25:
@@ -486,18 +484,12 @@ class BECModel(object):
                 # otherwise, just rename
                 else:
                     LOG.info("xxx")
-                    os.rename(
-                        os.path.join(srcpath, "dem_bc25.tif"),
-                        dem_bc
-                    )
+                    os.rename(os.path.join(srcpath, "dem_bc25.tif"), dem_bc)
 
                 # if not requesting terrain-tiles, again just rename the bc dem
                 if outside_bc.empty is True:
                     LOG.info("yyy")
-                    os.rename(
-                        dem_bc,
-                        dempath
-                    )
+                    os.rename(dem_bc, dempath)
             # get terrain-tiles
             # - if the bbox does extend outside of BC
             # - if _exbc file is not already present
@@ -507,9 +499,7 @@ class BECModel(object):
                 if "TERRAINCACHE" in os.environ.keys():
                     terraincache_path = os.environ["TERRAINCACHE"]
                 else:
-                    terraincache_path = os.path.join(
-                        config["wksp"], "terrain-tiles"
-                    )
+                    terraincache_path = os.path.join(config["wksp"], "terrain-tiles")
                 tt = TerrainTiles(
                     data["bounds"],
                     11,
@@ -556,11 +546,7 @@ class BECModel(object):
                 slopeFormat="percent",
             )
         if not os.path.exists(os.path.join(srcpath, "aspect.tif")):
-            gdal.DEMProcessing(
-                os.path.join(srcpath, "aspect.tif"),
-                dempath,
-                "aspect",
-            )
+            gdal.DEMProcessing(os.path.join(srcpath, "aspect.tif"), dempath, "aspect")
 
         # load slope from file
         with rasterio.open(os.path.join(srcpath, "slope.tif")) as src:
