@@ -19,6 +19,7 @@ from skimage.filters.rank import majority
 import skimage.morphology as morphology
 import click
 from scipy import ndimage
+import subprocess
 
 import bcdata
 
@@ -454,40 +455,70 @@ class BECModel(object):
 
         # We cache the result of WCS / terraintiles requests, so only
         # rerun if the file is not present
-        if not config["dem"] and not os.path.join(srcpath, "dem.tif"):
-            LOG.info("Downloading and processing DEM")
-            # If nothing in bbox is outside bc, just grab bc dem as dem.tif
-            if outside_bc.empty is True:
+        dem_bc = os.path.join(srcpath, "dem_bc.tif")
+        dem_exbc = os.path.join(srcpath, "dem_exbc.tif")
+        if not config["dem"]:
+
+            # get TRIM dem
+            if not os.path.exists(dem_bc):
+                LOG.info("Downloading and processing BC DEM")
+                # request at native resolution and resample locally
+                # because requesting a bilinear resampled DEM is slow
                 bcdata.get_dem(
-                    data["bounds"], dempath, resolution=config["cell_size_metres"]
+                    data["bounds"],
+                    os.path.join(srcpath, "dem_bc25.tif"),
+                    resolution=25
                 )
-            # if the bbox does extend outside of BC, then grab both BC
-            # and terrain-tiles and combine the sources into dem.tif
-            else:
-                dem_bc = os.path.join(srcpath, "dem_bc.tif")
-                dem_exbc = os.path.join(srcpath, "dem_exbc.tif")
-                if not os.path.exists(dem_bc):
-                    bcdata.get_dem(
-                        data["bounds"], dem_bc, resolution=config["cell_size_metres"]
+                # resample if "cell_size_metres" is not 25m
+                if config["cell_size_metres"] != 25:
+                    LOG.info("Resampling BC DEM")
+                    cmd = [
+                        "gdalwarp",
+                        "-r",
+                        "bilinear",
+                        "-tr",
+                        str(config["cell_size_metres"]),
+                        str(config["cell_size_metres"]),
+                        os.path.join(srcpath, "dem_bc25.tif"),
+                        dem_bc,
+                    ]
+                    subprocess.run(cmd)
+                # otherwise, just rename
+                else:
+                    LOG.info("xxx")
+                    os.rename(
+                        os.path.join(srcpath, "dem_bc25.tif"),
+                        dem_bc
                     )
-                # get terrain-tiles
-                if not os.path.exists(dem_exbc):
-                    # find path to cached terrain-tiles
-                    if "TERRAINCACHE" in os.environ.keys():
-                        terraincache_path = os.environ["TERRAINCACHE"]
-                    else:
-                        terraincache_path = os.path.join(
-                            config["wksp"], "terrain-tiles"
-                        )
-                    tt = TerrainTiles(
-                        data["bounds"],
-                        11,
-                        cache_dir=terraincache_path,
-                        bounds_crs="EPSG:3005",
-                        dst_crs="EPSG:3005",
-                        resolution=config["cell_size_metres"],
+
+                # if not requesting terrain-tiles, again just rename the bc dem
+                if outside_bc.empty is True:
+                    LOG.info("yyy")
+                    os.rename(
+                        dem_bc,
+                        dempath
                     )
-                    tt.save(out_file=dem_exbc)
+            # get terrain-tiles
+            # - if the bbox does extend outside of BC
+            # - if _exbc file is not already present
+            if not os.path.exists(dem_exbc) and not outside_bc.empty:
+
+                # find path to cached terrain-tiles
+                if "TERRAINCACHE" in os.environ.keys():
+                    terraincache_path = os.environ["TERRAINCACHE"]
+                else:
+                    terraincache_path = os.path.join(
+                        config["wksp"], "terrain-tiles"
+                    )
+                tt = TerrainTiles(
+                    data["bounds"],
+                    11,
+                    cache_dir=terraincache_path,
+                    bounds_crs="EPSG:3005",
+                    dst_crs="EPSG:3005",
+                    resolution=config["cell_size_metres"],
+                )
+                tt.save(out_file=dem_exbc)
 
                 # combine the sources
                 a = rasterio.open(dem_bc)
@@ -520,14 +551,14 @@ class BECModel(object):
         if not os.path.exists(os.path.join(srcpath, "slope.tif")):
             gdal.DEMProcessing(
                 os.path.join(srcpath, "slope.tif"),
-                os.path.join(srcpath, "dem.tif"),
+                dempath,
                 "slope",
                 slopeFormat="percent",
             )
         if not os.path.exists(os.path.join(srcpath, "aspect.tif")):
             gdal.DEMProcessing(
                 os.path.join(srcpath, "aspect.tif"),
-                os.path.join(srcpath, "dem.tif"),
+                dempath,
                 "aspect",
             )
 

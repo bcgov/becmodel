@@ -88,7 +88,7 @@ class TerrainTiles(object):
             else:
                 self.download_tile(tile)
 
-    def merge(self, out_file=None):
+    def merge(self, out_file=None, resample="bilinear"):
         """
         Create virtual merge of individual terrain tiles at given zoom, bounds
 
@@ -97,7 +97,7 @@ class TerrainTiles(object):
         https://github.com/smnorris/terraincache/issues/2
         """
         self.merged = os.path.join(self.tempfolder, "merge.vrt")
-        vrt_options = gdal.BuildVRTOptions(resampleAlg="cubic")
+        vrt_options = gdal.BuildVRTOptions(resampleAlg=resample)
         gdal.BuildVRT(self.merged, self.files, options=vrt_options)
         if out_file:
             LOG.info(f"writing {out_file}")

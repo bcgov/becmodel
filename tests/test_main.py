@@ -175,7 +175,7 @@ def test_run(tmpdir):
     Check that outputs are created and properly structured
     (not necessarily correct!)
     """
-    BM = BECModel("tests/test.cfg")
+    BM = BECModel(TESTCONFIG)
     BM.update_config({"temp_folder": str(tmpdir)})
     BM.update_config({"out_file": str(os.path.join(tmpdir, "bectest.gpkg"))})
     BM.load()
