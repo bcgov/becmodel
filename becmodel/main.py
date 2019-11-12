@@ -22,10 +22,10 @@ from scipy import ndimage
 import subprocess
 
 import bcdata
+from terraincache import TerrainTiles
 
 import becmodel
 from becmodel import util
-from becmodel.terraincache import TerrainTiles
 from becmodel.config import defaultconfig
 
 

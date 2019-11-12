@@ -29,6 +29,7 @@ requires = [
     "xlrd",
     "cligj",
     "mercantile",
+    "terraincache",
 ]
 
 setup(
