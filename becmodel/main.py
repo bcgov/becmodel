@@ -449,9 +449,9 @@ class BECModel(object):
         # use file based dem if provided in config
         if config["dem"]:
             LOG.info("Using DEM: {}".format(config["dem"]))
-            dempath = config["dem"]
+            self.dempath = config["dem"]
         else:
-            dempath = os.path.join(srcpath, "dem.tif")
+            self.dempath = os.path.join(srcpath, "dem.tif")
 
         # We cache the result of WCS / terraintiles requests, so only
         # rerun if the file is not present
@@ -489,7 +489,7 @@ class BECModel(object):
                 # if not requesting terrain-tiles, again just rename the bc dem
                 if outside_bc.empty is True:
                     LOG.info("yyy")
-                    os.rename(dem_bc, dempath)
+                    os.rename(dem_bc, self.dempath)
             # get terrain-tiles
             # - if the bbox does extend outside of BC
             # - if _exbc file is not already present
@@ -525,14 +525,14 @@ class BECModel(object):
                     }
                 )
                 # write merged tiff
-                with rasterio.open(dempath, "w", **out_meta) as dest:
+                with rasterio.open(self.dempath, "w", **out_meta) as dest:
                     dest.write(mosaic)
 
         # ----------------------------------------------------------------
         # DEM processing
         # ----------------------------------------------------------------
         # load dem into memory and get the shape / transform
-        with rasterio.open(dempath) as src:
+        with rasterio.open(self.dempath) as src:
             self.shape = src.shape
             self.transform = src.transform
             data["dem"] = src.read(1)
@@ -541,12 +541,12 @@ class BECModel(object):
         if not os.path.exists(os.path.join(srcpath, "slope.tif")):
             gdal.DEMProcessing(
                 os.path.join(srcpath, "slope.tif"),
-                dempath,
+                self.dempath,
                 "slope",
                 slopeFormat="percent",
             )
         if not os.path.exists(os.path.join(srcpath, "aspect.tif")):
-            gdal.DEMProcessing(os.path.join(srcpath, "aspect.tif"), dempath, "aspect")
+            gdal.DEMProcessing(os.path.join(srcpath, "aspect.tif"), self.dempath, "aspect")
 
         # load slope from file
         with rasterio.open(os.path.join(srcpath, "slope.tif")) as src:
@@ -904,9 +904,7 @@ class BECModel(object):
             # and write/index if it is a numpy array
             qa_dumps = [d for d in self.data.keys() if type(self.data[d]) == np.ndarray]
             # read DEM to get crs / width / height etc
-            with rasterio.open(
-                os.path.join(self.config["wksp"], "src", "dem.tif")
-            ) as src:
+            with rasterio.open(self.dempath) as src:
                 for i, raster in enumerate(qa_dumps):
                     out_qa_tif = os.path.join(
                         self.config["wksp"], str(i).zfill(2) + "_" + raster + ".tif"
