@@ -26,6 +26,7 @@ Install required packages and `becmodel` itself:
 
     conda install click gdal numpy pandas fiona rasterio geopandas geojson scikit-image xlrd cligj mercantile -y
     pip install bcdata
+    pip install terraincache
     pip install -e .
 
 Reactivate the environment so that the `gdal` and `proj` environment variables are set:
