@@ -58,7 +58,7 @@ A table (one of csv/xls/xlsx formats) with the following columns (in any order, 
 
 If using an Excel file, the elevation table data must be in the first worksheet, with header originating at Column A, Row 1 and data originating at Column A, Row 2.
 
-See [example elevation file](examples/robson/elevation.csv)
+See [example elevation file](tests/data/elevation.csv)
 
 ### 3. Configuration / initialization file
 
