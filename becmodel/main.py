@@ -16,6 +16,8 @@ import numpy as np
 import geopandas as gpd
 from geojson import Feature, FeatureCollection
 from skimage.filters.rank import majority
+from shapely.geometry.polygon import Polygon
+from shapely.geometry.multipolygon import MultiPolygon
 import skimage.morphology as morphology
 import click
 from scipy import ndimage
@@ -546,7 +548,9 @@ class BECModel(object):
                 slopeFormat="percent",
             )
         if not os.path.exists(os.path.join(srcpath, "aspect.tif")):
-            gdal.DEMProcessing(os.path.join(srcpath, "aspect.tif"), self.dempath, "aspect")
+            gdal.DEMProcessing(
+                os.path.join(srcpath, "aspect.tif"), self.dempath, "aspect"
+            )
 
         # load slope from file
         with rasterio.open(os.path.join(srcpath, "slope.tif")) as src:
@@ -931,9 +935,25 @@ class BECModel(object):
             columns=["becvalue"]
         )
 
+        # define output schema
+        schema = {
+            "geometry": "MultiPolygon",
+            "properties": {"BGC_LABEL": "str:9", "AREA_HECTARES": "float:16"},
+        }
+
+        # cast all features to multipolygon so that they match schema above
+        # https://gis.stackexchange.com/questions/311320/casting-geometry-to-multi-using-geopandas
+        self.data["becvalue_polys"]["geometry"] = [
+            MultiPolygon([feature]) if type(feature) == Polygon else feature
+            for feature in self.data["becvalue_polys"]["geometry"]
+        ]
+
         # write output vectors to file
         self.data["becvalue_polys"].to_file(
-            self.config["out_file"], layer=self.config["out_layer"], driver="GPKG"
+            self.config["out_file"],
+            layer=self.config["out_layer"],
+            schema=schema,
+            driver="GPKG",
         )
 
         # dump config settings to file
