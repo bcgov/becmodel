@@ -71,7 +71,7 @@ def test_invalid_cell_size3():
 
 def test_load_elevation():
     BM = BECModel(TESTCONFIG)
-    assert BM.data["elevation"].beclabel[0] == "BG  xh 1 "
+    assert BM.data["elevation"].beclabel[0] == "BG  xh 1"
 
 
 def test_load_becmaster():
@@ -95,7 +95,7 @@ def test_load_becmaster_invalid_data():
 def test_load_excel():
     BM = BECModel(TESTCONFIG)
     BM.update_config({"elevation": "tests/data/elevation.xlsx"})
-    assert BM.data["elevation"].beclabel[0] == "BG  xh 1 "
+    assert BM.data["elevation"].beclabel[0] == "BG  xh 1"
 
 
 # invalid types in rule polys

@@ -79,8 +79,6 @@ def load_tables(config):
                 "polygon_number",
             ]
         ]
-        # pad the beclabel so we can join to the catalogue table
-        data["elevation"].beclabel = data["elevation"].beclabel.str.pad(9, side="right")
         data["elevation"].set_index("beclabel", inplace=True)
 
         # -- load becvalue ids
@@ -122,6 +120,8 @@ def load_tables(config):
             + a["variant"]
             + a["phase"]
         )
+        # strip trailing spaces that were added
+        a["beclabel"] = a["beclabel"].str.strip()
         a.set_index("beclabel", inplace=True, verify_integrity=True)
         data["becmaster"] = a[["becvalue"]]
 

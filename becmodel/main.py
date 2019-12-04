@@ -274,16 +274,25 @@ class BECModel(object):
                 ]
                 .tolist()
             )
-            # find beclabel used for high class by looking for substring of
-            # woodland beclabel - only look for this if there is woodland present
+
+            # If there is woodland present,
+            # find beclabel used for high class by:
+            # - beclabel is equivalent to first 6 char of woodland label
+            # - 7th character of (right padded) beclabel is " "
+            #   (not parkland, not woodland)
             if woodland:
                 high = (
                     self.data["elevation"]
                     .beclabel[
                         (self.data["elevation"].polygon_number == rule_poly)
                         & (
-                            self.data["elevation"].beclabel.str[:7]
-                            == woodland[0][:-3] + " "
+                            self.data["elevation"].beclabel.str[:6]
+                            == woodland[0][:6]
+                        )
+                        & (
+                            self.data["elevation"].beclabel.str.pad(
+                                9, side="right")
+                            .str[6] == " "
                         )
                     ]
                     .tolist()
