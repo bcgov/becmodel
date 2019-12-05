@@ -3,6 +3,7 @@ import os
 import pytest
 import pandas as pd
 import fiona
+import geopandas as gpd
 
 from becmodel import BECModel
 from becmodel import util
@@ -166,18 +167,19 @@ def test_local_dem(tmpdir):
     """Test loading dem from local file path
     """
     BM = BECModel(TESTCONFIG)
-    BM.update_config({"dem": "tests/data/dem.tif"})
+    BM.update_config({"dem": "tests/data/dem_ok.tif"})
     BM.load()
 
 
 def test_run(tmpdir):
     """
-    Check that outputs are created and properly structured
+    Check that outputs are created, properly structured and consistent
     (not necessarily correct!)
     """
     BM = BECModel(TESTCONFIG)
     BM.update_config({"temp_folder": str(tmpdir)})
     BM.update_config({"out_file": str(os.path.join(tmpdir, "bectest.gpkg"))})
+    BM.update_config({"dem": "tests/data/dem_ok.tif"})
     BM.load()
     BM.model()
     BM.postfilter()
@@ -191,3 +193,7 @@ def test_run(tmpdir):
             "BGC_LABEL",
             "AREA_HECTARES",
         ]
+    # check outputs
+    df = gpd.read_file(str(os.path.join(tmpdir, "bectest.gpkg")))
+    areas = df.groupby(["BGC_LABEL"])["AREA_HECTARES"].sum().round()
+    assert list(areas) == [5849.0, 1618.0, 6914.0, 13475.0, 2758.0, 6607.0]
