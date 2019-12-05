@@ -216,19 +216,16 @@ class BECModel(object):
     @property
     def high_elevation_merges(self):
         """
-        Return a list of dicts, defining what beclabel transition paths for
-        high elevation noise removal.
+        Define a list of valid transitions for the high elevation filter,
+        one dict for each alpine/parkland/woodland in each rule polygon.
 
-        eg:
+        Transitions are dicts with keys rule, type, becvalue, becvalue_target:
 
-        [{'rule': 123, 'type': 'alpine', 'becvalue': 1, 'becvalue_target': 2},
-         {'rule': 123, 'type': 'parkland', 'becvalue': 2, 'becvalue_target': 3},
-         {'rule': 123, 'type': 'woodland', 'becvalue': 3, 'becvalue_target': 4},
-         {'rule': 124, 'type': 'alpine', 'becvalue': 1, 'becvalue_target': 10},
-         {'rule': 124, 'type': 'parkland', 'becvalue': 10, 'becvalue_target': 11},
-         {'rule': 124, 'type': 'woodland', 'becvalue': 11, 'becvalue_target': 12},
-         {'rule': 122, 'type': 'alpine', 'becvalue': 1, 'becvalue_target': 2},
+        {'rule': 123, 'type': 'alpine', 'becvalue': 1, 'becvalue_target': 2}
 
+        This means that for rule polygon 23, alpine areas of becvalue=1
+        will be translated to parkland of becvalue=2 if the size of the alpine
+        area patch is not above the threshold set in the config.
         """
         high_elevation_merges = []
         for rule_poly in self.data["rulepolys"].polygon_number.tolist():
@@ -823,9 +820,9 @@ class BECModel(object):
         )
 
         # Because we are finding noise by aggregating and finding holes,
-        # iterate through all but the first high elevation type.
+        # iterate through all but the lowest high elevation type.
         # We presume that if a higher type is present, all below types are as
-        # well (eg, if parkland is present, woodland and high must be too)
+        # well (eg, if parkland is present, woodland and 'high' must be too)
         high_elevation_types = list(self.high_elevation_dissolves.keys())
         for i, highelev_type in enumerate(high_elevation_types[:-1]):
             LOG.info(
@@ -833,15 +830,32 @@ class BECModel(object):
             )
 
             # Extract area of interest
-            # eg, find and aggregate all parkland values for finding alpine
-            # area < threshold
+            # eg, Find and aggregate all parkland values - holes within the
+            # created patches can be assumed to be alpine, so we can fill
+            # holes < area threshold
+
+            # find all becvalues of zone below zone of interest
+            # (all parkland becvalues if we are eliminating alpine)
             to_agg = self.high_elevation_dissolves[high_elevation_types[i + 1]]
+
+            # aggregate the areas, creating a boolean array
             X = np.isin(data["highelev"], to_agg)
+
+            # remove small holes (below our threshold) within the boolean array
             Y = morphology.remove_small_holes(
                 X,
                 high_elevation_removal_threshold,
                 connectivity=config["cell_connectivity"],
             )
+
+            # find the difference
+            # (just fill the holes, don't write the entire zones)
+            Z = np.where((X == 0) & (Y == 1), 1, 0)
+
+            # note that for QA, we could add  X/Y/Z arrays to the data dict
+            # something like this, - they'll get written to temp
+            # data[highelev_type+"_X"] = X
+            # data[highelev_type+"_Y"] = Y
 
             # remove the small areas in the output image by looping through
             # the merges for the given type, this iterates through the
@@ -850,7 +864,7 @@ class BECModel(object):
                 m for m in self.high_elevation_merges if m["type"] == highelev_type
             ]:
                 data["highelev"] = np.where(
-                    (Y == 1) & (data["ruleimg"] == merge["rule"]),
+                    (Z == 1) & (data["ruleimg"] == merge["rule"]),
                     merge["becvalue_target"],
                     data["highelev"],
                 )
