@@ -198,3 +198,24 @@ def test_run(tmpdir):
     areas = df.groupby(["BGC_LABEL"])["AREA_HECTARES"].sum().round()
     assert list(areas) == [5156.0, 553.0, 3617.0, 7550.0, 1511.0, 5049.0]
 
+
+def test_nowoodland(tmpdir):
+    BM = BECModel(TESTCONFIG)
+    BM.update_config({"temp_folder": str(tmpdir)})
+    BM.update_config({"out_file": str(os.path.join(tmpdir, "bectest_nowoodland.gpkg"))})
+    BM.update_config({"elevation": "tests/data/elevation_nowoodland.csv"}, reload=True)
+    BM.load()
+    BM.model()
+    BM.postfilter()
+    BM.write()
+
+
+def test_nohigh(tmpdir):
+    BM = BECModel(TESTCONFIG)
+    BM.update_config({"temp_folder": str(tmpdir)})
+    BM.update_config({"out_file": str(os.path.join(tmpdir, "bectest_nohigh.gpkg"))})
+    BM.update_config({"elevation": "tests/data/elevation_nohigh.csv"}, reload=True)
+    BM.load()
+    BM.model()
+    BM.postfilter()
+    BM.write()

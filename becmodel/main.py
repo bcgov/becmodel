@@ -272,24 +272,32 @@ class BECModel(object):
                 .tolist()
             )
 
-            # If there is woodland present,
+            # get beclabel used for 'high' class from woodland label
+            # if woodland label is not present, use parkland
+            if woodland:
+                source_label = woodland
+            elif parkland and not woodland:
+                source_label = parkland
+
             # find beclabel used for high class by:
-            # - beclabel is equivalent to first 6 char of woodland label
+            # - beclabel is equivalent to first 6 char of soiurce
+            #   woodland/parkland label
             # - 7th character of (right padded) beclabel is " "
             #   (not parkland, not woodland)
-            if woodland:
+            if (parkland and not woodland) or woodland:
                 high = (
                     self.data["elevation"]
                     .beclabel[
                         (self.data["elevation"].polygon_number == rule_poly)
                         & (
                             self.data["elevation"].beclabel.str[:6]
-                            == woodland[0][:6]
+                            == source_label[0][:6]
                         )
                         & (
-                            self.data["elevation"].beclabel.str.pad(
-                                9, side="right")
-                            .str[6] == " "
+                            self.data["elevation"]
+                            .beclabel.str.pad(9, side="right")
+                            .str[6]
+                            == " "
                         )
                     ]
                     .tolist()
@@ -306,12 +314,23 @@ class BECModel(object):
                 }
                 high_elevation_merges.append(lookup)
 
-            if parkland:
+            if parkland and woodland:
                 lookup = {
                     "rule": rule_poly,
                     "type": "parkland",
                     "becvalue": self.becvalue_lookup[parkland[0]],
                     "becvalue_target": self.becvalue_lookup[woodland[0]],
+                }
+                high_elevation_merges.append(lookup)
+
+            # it is possible to not have woodland below parkland, in this case
+            # transition to the 'high' when removing parkland
+            elif parkland and not woodland:
+                lookup = {
+                    "rule": rule_poly,
+                    "type": "parkland",
+                    "becvalue": self.becvalue_lookup[parkland[0]],
+                    "becvalue_target": self.becvalue_lookup[high[0]],
                 }
                 high_elevation_merges.append(lookup)
 
@@ -325,6 +344,12 @@ class BECModel(object):
                 high_elevation_merges.append(lookup)
 
         return high_elevation_merges
+
+    @property
+    def high_elevation_types(self):
+        """Create a list of high elevation types found in the entire project
+        """
+        return list(set([k["type"] for k in self.high_elevation_merges]))
 
     @property
     def high_elevation_dissolves(self):
@@ -345,25 +370,37 @@ class BECModel(object):
         woodland, only the actual woodland codes are needed because any small
         holes in parkland are already been removed in the previous steps.
         """
+        # create empty dict and populate with keys for each high elevation type
+        # eg: high_elevation_dissolves["alpine"] = []
         high_elevation_dissolves = {}
-        high_elevation_dissolves["alpine"] = []
-        high_elevation_dissolves["parkland"] = []
-        high_elevation_dissolves["woodland"] = []
+        for highelev_type in self.high_elevation_types:
+            high_elevation_dissolves[highelev_type] = []
+        # add in 'high'
         high_elevation_dissolves["high"] = []
 
         for mergerule in self.high_elevation_merges:
-            for highelev_type in high_elevation_dissolves:
+            for highelev_type in self.high_elevation_types:
                 if mergerule["type"] == highelev_type:
                     high_elevation_dissolves[highelev_type].append(
                         mergerule["becvalue"]
                     )
-                if mergerule["type"] == "woodland":
+                # if woodland is not present, assign "high" from
+                # parkland target becvalues
+                if (mergerule["type"] == "parkland") and (
+                    "woodland" not in self.high_elevation_types
+                ):
+                    high_elevation_dissolves["high"].append(
+                        mergerule["becvalue_target"]
+                    )
+                # if woodland is present, assign high from woodland target
+                # becvalues
+                elif mergerule["type"] == "woodland":
                     high_elevation_dissolves["high"].append(
                         mergerule["becvalue_target"]
                     )
 
         # remove any duplicates
-        for highelev_type in ["alpine", "parkland", "woodland", "high"]:
+        for highelev_type in self.high_elevation_types:
             high_elevation_dissolves[highelev_type] = list(
                 set(high_elevation_dissolves[highelev_type])
             )
@@ -702,26 +739,22 @@ class BECModel(object):
         # generate these dynamically based on current max value because using
         # arbitrary large values decreases performace of scikit-img rank
         # filters (majority)
-        max_value = data["becmaster"]["becvalue"].max()
-        high_elevation_aggregates = {
-            "alpine": max_value + 1,
-            "parkland": max_value + 2,
-            "woodland": max_value + 3,
-        }
-        for key in high_elevation_aggregates:
-            for becvalue in self.high_elevation_dissolves[key]:
-                data["becinit_grouped"] = np.where(
-                    data["becinit_grouped"] == becvalue,
-                    high_elevation_aggregates[key],
-                    data["becinit_grouped"],
-                )
+        if len(self.high_elevation_types) >= 1:
 
-        # note original high elevation becvalues
-        high_elevation_becvalues = (
-            self.high_elevation_dissolves["alpine"]
-            + self.high_elevation_dissolves["parkland"]
-            + self.high_elevation_dissolves["woodland"]
-        )
+            max_value = data["becmaster"]["becvalue"].max()
+            high_elevation_aggregates = {
+                "alpine": max_value + 1,
+                "parkland": max_value + 2,
+                "woodland": max_value + 3,
+            }
+            for key in high_elevation_aggregates:
+                if key in self.high_elevation_types:
+                    for becvalue in self.high_elevation_dissolves[key]:
+                        data["becinit_grouped"] = np.where(
+                            data["becinit_grouped"] == becvalue,
+                            high_elevation_aggregates[key],
+                            data["becinit_grouped"],
+                        )
 
         # ----------------------------------------------------------------
         # majority filter
@@ -747,7 +780,8 @@ class BECModel(object):
         # the majority filter, loop through the rule polygons and re-assign
         # the becvalues
         data["postmajority"] = data["majority"].copy()
-        for zone in ["alpine", "parkland", "woodland"]:
+
+        for zone in self.high_elevation_types:
             for lookup in [r for r in self.high_elevation_merges if r["type"] == zone]:
                 data["postmajority"][
                     (data["ruleimg"] == lookup["rule"])
@@ -813,61 +847,65 @@ class BECModel(object):
         # ----------------------------------------------------------------
         # initialize output image
         data["highelev"] = data["noise_fill"].copy()
+
         # convert high_elevation_removal_threshold value from ha to n cells
         high_elevation_removal_threshold = int(
             (self.config["high_elevation_removal_threshold_ha"] * 10000)
             / (self.config["cell_size_metres"] ** 2)
         )
 
-        # Because we are finding noise by aggregating and finding holes,
-        # iterate through all but the lowest high elevation type.
-        # We presume that if a higher type is present, all below types are as
-        # well (eg, if parkland is present, woodland and 'high' must be too)
-        high_elevation_types = list(self.high_elevation_dissolves.keys())
-        for i, highelev_type in enumerate(high_elevation_types[:-1]):
-            LOG.info(
-                "Running high_elevation_removal_threshold on {}".format(highelev_type)
-            )
+        # remove high elevation noise only if high elevation types are present
+        if len(self.high_elevation_types) >= 1:
 
-            # Extract area of interest
-            # eg, Find and aggregate all parkland values - holes within the
-            # created patches can be assumed to be alpine, so we can fill
-            # holes < area threshold
-
-            # find all becvalues of zone below zone of interest
-            # (all parkland becvalues if we are eliminating alpine)
-            to_agg = self.high_elevation_dissolves[high_elevation_types[i + 1]]
-
-            # aggregate the areas, creating a boolean array
-            X = np.isin(data["highelev"], to_agg)
-
-            # remove small holes (below our threshold) within the boolean array
-            Y = morphology.remove_small_holes(
-                X,
-                high_elevation_removal_threshold,
-                connectivity=config["cell_connectivity"],
-            )
-
-            # find the difference
-            # (just fill the holes, don't write the entire zones)
-            Z = np.where((X == 0) & (Y == 1), 1, 0)
-
-            # note that for QA, we could add  X/Y/Z arrays to the data dict
-            # something like this, - they'll get written to temp
-            # data[highelev_type+"_X"] = X
-            # data[highelev_type+"_Y"] = Y
-
-            # remove the small areas in the output image by looping through
-            # the merges for the given type, this iterates through the
-            # rule polygons.
-            for merge in [
-                m for m in self.high_elevation_merges if m["type"] == highelev_type
-            ]:
-                data["highelev"] = np.where(
-                    (Z == 1) & (data["ruleimg"] == merge["rule"]),
-                    merge["becvalue_target"],
-                    data["highelev"],
+            # Because we are finding noise by aggregating and finding holes,
+            # iterate through all but the lowest high elevation type.
+            dissolve_types = list(self.high_elevation_dissolves.keys())
+            for i, highelev_type in enumerate(dissolve_types[:-1]):
+                LOG.info(
+                    "Running high_elevation_removal_threshold on {}".format(
+                        highelev_type
+                    )
                 )
+
+                # Extract area of interest
+                # eg, Find and aggregate all parkland values - holes within the
+                # created patches can be assumed to be alpine, so we can fill
+                # holes < area threshold
+
+                # find all becvalues of zone below zone of interest
+                # (all parkland becvalues if we are eliminating alpine)
+                to_agg = self.high_elevation_dissolves[dissolve_types[i + 1]]
+
+                # aggregate the areas, creating a boolean array
+                X = np.isin(data["highelev"], to_agg)
+
+                # remove small holes (below our threshold) within the boolean array
+                Y = morphology.remove_small_holes(
+                    X,
+                    high_elevation_removal_threshold,
+                    connectivity=config["cell_connectivity"],
+                )
+
+                # find the difference
+                # (just fill the holes, don't write the entire zones)
+                Z = np.where((X == 0) & (Y == 1), 1, 0)
+
+                # note that for QA, we could add  X/Y/Z arrays to the data dict
+                # something like this, - they'll get written to temp
+                # data[highelev_type+"_X"] = X
+                # data[highelev_type+"_Y"] = Y
+
+                # remove the small areas in the output image by looping through
+                # the merges for the given type, this iterates through the
+                # rule polygons.
+                for merge in [
+                    m for m in self.high_elevation_merges if m["type"] == highelev_type
+                ]:
+                    data["highelev"] = np.where(
+                        (Z == 1) & (data["ruleimg"] == merge["rule"]),
+                        merge["becvalue_target"],
+                        data["highelev"],
+                    )
 
         # ----------------------------------------------------------------
         # Convert to poly
