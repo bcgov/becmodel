@@ -99,7 +99,7 @@ To use a custom DEM, add the `dem` key to your configuration file, with the full
 - reproject your DEM to BC Albers (`EPSG:3005`)
 - align your DEM to the HectaresBC grid default
 
-For example, see [`scripts/create_test_dem.sh`](scripts/create_test_dem).
+For example, see [`scripts/create_test_dem.sh`](scripts/create_test_dem.sh).
 
 Also note that if a DEM file is provided to `becmodel` config, `becmodel` will not attempt to download non-BC data from Mapzen terrain-tiles. If you require elevation data outside of BC, integrate it into your DEM before running the model.
 
