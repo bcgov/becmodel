@@ -894,16 +894,6 @@ class BECModel(object):
         # set crs
         data["becvalue_polys"].crs = {"init": "epsg:3005"}
 
-        # add area_ha column
-        data["becvalue_polys"]["AREA_HECTARES"] = (
-            data["becvalue_polys"]["geometry"].area / 10000
-        )
-
-        # round to 1 decimal place
-        data["becvalue_polys"].AREA_HECTARES = data[
-            "becvalue_polys"
-        ].AREA_HECTARES.round(1)
-
         # clip to aggregated rule polygons
         # (buffer the dissolved rules out and in to ensure no small holes
         # are created by dissolve due to precision errors)
@@ -913,6 +903,16 @@ class BECModel(object):
         data["becvalue_polys"] = gpd.overlay(
             data["becvalue_polys"], Y, how="intersection"
         )
+
+        # add area_ha column
+        data["becvalue_polys"]["AREA_HECTARES"] = (
+            data["becvalue_polys"]["geometry"].area / 10000
+        )
+
+        # round to 1 decimal place
+        data["becvalue_polys"].AREA_HECTARES = data[
+            "becvalue_polys"
+        ].AREA_HECTARES.round(1)
 
         # remove rulepoly fields
         data["becvalue_polys"] = data["becvalue_polys"][

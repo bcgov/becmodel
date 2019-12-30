@@ -196,4 +196,5 @@ def test_run(tmpdir):
     # check outputs
     df = gpd.read_file(str(os.path.join(tmpdir, "bectest.gpkg")))
     areas = df.groupby(["BGC_LABEL"])["AREA_HECTARES"].sum().round()
-    assert list(areas) == [5849.0, 1618.0, 6914.0, 13475.0, 2758.0, 6607.0]
+    assert list(areas) == [5156.0, 553.0, 3617.0, 7550.0, 1511.0, 5049.0]
+
