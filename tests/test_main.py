@@ -49,7 +49,7 @@ def test_reproject_rule_layer():
         },
         reload=True
     )
-    assert BM.data["rulepolys"].crs["init"].upper() == "EPSG:3005"
+    assert BM.data["rulepolys"].crs == "EPSG:3005"
 
 
 def test_invalid_cell_size1():
