@@ -153,7 +153,7 @@ def load_tables(config):
 
         elif (
             data["rulepolys"].crs
-            and data["rulepolys"].crs["init"].upper() != "EPSG:3005"
+            and data["rulepolys"].crs != "EPSG:3005"
         ):
             LOG.info(
                 "Input data is not specified as BC Albers, attempting to reproject"

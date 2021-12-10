@@ -545,6 +545,7 @@ class BECModel(object):
                     terraincache_path = os.environ["TERRAINCACHE"]
                 else:
                     terraincache_path = os.path.join(config["wksp"], "terrain-tiles")
+                LOG.info("Downloading terrain tiles DEM (for areas outside of BC boundary)")
                 tt = TerrainTiles(
                     data["bounds"],
                     11,
