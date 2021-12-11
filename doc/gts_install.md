@@ -19,12 +19,13 @@ Open a `Python Command Prompt` and create a folder for writing `conda` packages 
     activate W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\becmodel\becenv
     conda config --env --add pkgs_dirs W:\FOR\VIC\HRE\Projects\Landscape\ProvBGC\CurrentWork\TestingNewBECmodel2019\conda_pkgs
     conda config --env --add channels conda-forge
+    conda config --set channel_priority strict
 
 ### 3. Install dependencies, `becmodel` and clean up
 
 Install required packages and `becmodel` itself:
 
-    conda install click gdal numpy pandas fiona rasterio geopandas geojson scikit-image xlrd cligj mercantile -y
+    conda install pip click gdal numpy pandas fiona rasterio geopandas geojson scikit-image xlrd cligj mercantile openpyxl -y
     pip install bcdata
     pip install terraincache
     pip install -e .
