@@ -1,6 +1,5 @@
 
 from math import trunc
-import os
 from pathlib import Path
 
 import logging
@@ -56,7 +55,7 @@ def load_tables(config):
         data["elevation"].rename(columns=elevation_column_remap, inplace=True)
         data["elevation"].astype(
             {
-                "beclabel": np.str,
+                "beclabel": str,
                 "cool_low": np.int16,
                 "cool_high": np.int16,
                 "neutral_low": np.int16,
@@ -158,7 +157,7 @@ def load_tables(config):
             LOG.info(
                 "Input data is not specified as BC Albers, attempting to reproject"
             )
-            data["rulepolys"] = data["rulepolys"].to_crs({"init": "EPSG:3005"})
+            data["rulepolys"] = data["rulepolys"].to_crs("EPSG:3005")
         data["rulepolys"].rename(columns=str.lower, inplace=True)
         data["rulepolys"].rename(columns=rules_column_remap, inplace=True)
     except:

@@ -43,8 +43,7 @@ class ConfigValueError(Exception):
 
 
 class BECModel(object):
-    """A class to hold a model's config, data and methods
-    """
+    """A class to hold a model's config, data and methods"""
 
     def __init__(self, config_file=None):
         LOG.info("Initializing BEC model v{}".format(becmodel.__version__))
@@ -66,8 +65,7 @@ class BECModel(object):
         self.start_time = datetime.now()
 
     def read_config(self, config_file):
-        """Read provided config file, overwriting default config values
-        """
+        """Read provided config file, overwriting default config values"""
         LOG.info("Loading config from file: %s", config_file)
         cfg = configparser.ConfigParser()
         cfg.read(config_file)
@@ -93,8 +91,7 @@ class BECModel(object):
         self.config["wksp"] = self.config["temp_folder"]
 
     def update_config(self, update_dict, reload=False):
-        """Update config dictionary, reloading source data if specified
-        """
+        """Update config dictionary, reloading source data if specified"""
         self.config.update(update_dict)
         # set config temp_folder to wksp for brevity
         if "temp_folder" in update_dict.keys():
@@ -104,8 +101,7 @@ class BECModel(object):
             self.data = util.load_tables(self.config)
 
     def validate_config(self):
-        """Validate provided config and add aspect temp zone definitions
-        """
+        """Validate provided config and add aspect temp zone definitions"""
         # validate that required paths exist
         for key in ["rulepolys_file", "elevation"]:
             if not os.path.exists(self.config[key]):
@@ -179,6 +175,16 @@ class BECModel(object):
                         self.config["dem"]
                     )
                 )
+        if Path(self.config["out_file"]).suffix == ".gpkg":
+            self.config["output_driver"] = "GPKG"
+        elif Path(self.config["out_file"]).suffix == ".shp":
+            self.config["output_driver"] = "ESRI Shapefile"
+        else:
+            raise ConfigValueError(
+                "out_file {} specified in config invalid, output must be .shp or .gpkg".format(
+                    self.config["out_file"]
+                )
+            )
 
     def write_config_log(self):
         """dump configs to file"""
@@ -347,8 +353,7 @@ class BECModel(object):
 
     @property
     def high_elevation_types(self):
-        """Create a list of high elevation types found in the entire project
-        """
+        """Create a list of high elevation types found in the entire project"""
         return list(set([k["type"] for k in self.high_elevation_merges]))
 
     @property
@@ -408,8 +413,7 @@ class BECModel(object):
         return high_elevation_dissolves
 
     def load(self, overwrite=False):
-        """ Load input data, do all model calculations and filters
-        """
+        """Load input data, do all model calculations and filters"""
         # shortcuts
         config = self.config
         data = self.data
@@ -472,18 +476,18 @@ class BECModel(object):
 
         # do bounds extend outside of BC?
         bounds_ll = transform_bounds("EPSG:3005", "EPSG:4326", *data["bounds"])
-        bounds_gdf = util.bbox2gdf(bounds_ll)
+        bounds_gdf = util.bbox2gdf(bounds_ll).set_crs("EPSG:4326")
 
         # load neighbours
         # Note that the natural earth dataset is only 1:10m,
-        # buffer it by 2k to be sure it captures the edge of the province
+        # buffer it by 2km to be sure it captures the edge of the province
         nbr = (
             gpd.read_file(
                 os.path.join(os.path.dirname(__file__), "data/neighbours.geojson")
             )
             .dissolve(by="scalerank")
-            .buffer(2000)
         )
+        nbr = nbr.to_crs("EPSG:3005").buffer(2000).to_crs("EPSG:4326")
         neighbours = (
             gpd.GeoDataFrame(nbr)
             .rename(columns={0: "geometry"})
@@ -545,7 +549,9 @@ class BECModel(object):
                     terraincache_path = os.environ["TERRAINCACHE"]
                 else:
                     terraincache_path = os.path.join(config["wksp"], "terrain-tiles")
-                LOG.info("Study area bounding box extends outside of BC, using MapZen terrain tiles to fill gaps")
+                LOG.info(
+                    "Study area bounding box extends outside of BC, using MapZen terrain tiles to fill gaps"
+                )
                 tt = TerrainTiles(
                     data["bounds"],
                     11,
@@ -721,7 +727,7 @@ class BECModel(object):
         self.data = data
 
     def postfilter(self):
-        """ Tidy the output bec zones by applying several filters:
+        """Tidy the output bec zones by applying several filters:
         - majority
         - noise
         - area closing (fill in 0 areas created by noise filter)
@@ -766,13 +772,13 @@ class BECModel(object):
             majority(
                 data["becinit_grouped"],
                 morphology.rectangle(
-                    width=self.filtersize_low, height=self.filtersize_low
+                    nrows=self.filtersize_low, ncols=self.filtersize_low
                 ),
             ),
             majority(
                 data["becinit_grouped"],
                 morphology.rectangle(
-                    width=self.filtersize_steep, height=self.filtersize_steep
+                    nrows=self.filtersize_steep, ncols=self.filtersize_steep
                 ),
             ),
         )
@@ -931,38 +937,35 @@ class BECModel(object):
         )
 
         # set crs
-        data["becvalue_polys"].crs = {"init": "epsg:3005"}
+        data["becvalue_polys"].crs = "EPSG:3005"
 
         # clip to aggregated rule polygons
         # (buffer the dissolved rules out and in to ensure no small holes
         # are created by dissolve due to precision errors)
         data["rulepolys"]["rules"] = 1
-        X = data["rulepolys"].dissolve(by="rules").buffer(.01).buffer(-.01)
+        X = data["rulepolys"].dissolve(by="rules").buffer(0.01).buffer(-0.01)
         Y = gpd.GeoDataFrame(X).rename(columns={0: "geometry"}).set_geometry("geometry")
         data["becvalue_polys"] = gpd.overlay(
             data["becvalue_polys"], Y, how="intersection"
         )
 
         # add area_ha column
-        data["becvalue_polys"]["AREA_HECTARES"] = (
+        data["becvalue_polys"]["AREA_HA"] = (
             data["becvalue_polys"]["geometry"].area / 10000
         )
 
         # round to 1 decimal place
-        data["becvalue_polys"].AREA_HECTARES = data[
-            "becvalue_polys"
-        ].AREA_HECTARES.round(1)
+        data["becvalue_polys"].AREA_HA = data["becvalue_polys"].AREA_HA.round(1)
 
         # remove rulepoly fields
         data["becvalue_polys"] = data["becvalue_polys"][
-            ["BGC_LABEL", "AREA_HECTARES", "becvalue", "geometry"]
+            ["BGC_LABEL", "AREA_HA", "becvalue", "geometry"]
         ]
 
         self.data = data
 
     def write(self, discard_temp=False):
-        """ Write outputs to disk
-        """
+        """Write outputs to disk"""
 
         # if not specified otherwise, dump all intermediate raster data to file
         if not discard_temp:
@@ -1000,7 +1003,7 @@ class BECModel(object):
         # define output schema
         schema = {
             "geometry": "MultiPolygon",
-            "properties": {"BGC_LABEL": "str:9", "AREA_HECTARES": "float:16"},
+            "properties": {"BGC_LABEL": "str:9", "AREA_HA": "float:16"},
         }
 
         # cast all features to multipolygon so that they match schema above
@@ -1011,11 +1014,14 @@ class BECModel(object):
         ]
 
         # write output vectors to file
+        # Supported formats are shapefile or geopackage, indicated by file
+        # extension in config[out_file].
+        # **note that config[out_layer] is ignored if writing to shapefile**
         self.data["becvalue_polys"].to_file(
             self.config["out_file"],
             layer=self.config["out_layer"],
             schema=schema,
-            driver="GPKG",
+            driver=self.config["output_driver"],
         )
 
         # dump config settings to file

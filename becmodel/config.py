@@ -9,7 +9,7 @@ defaultconfig = {
     "becmaster": None,
     "dem": None,
     "temp_folder": tempfile.mkdtemp(prefix="becmodel-"),
-    "out_file": "becmodel.gpkg",
+    "out_file": "becmodel.shp",
     "out_layer": "becmodel",
     "cell_size_metres": 50,
     "cell_connectivity": 1,

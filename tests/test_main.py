@@ -171,9 +171,9 @@ def test_local_dem(tmpdir):
     BM.load()
 
 
-def test_run(tmpdir):
+def test_run_gpkg(tmpdir):
     """
-    Check that outputs are created, properly structured and consistent
+    Check that gpkg outputs are created, properly structured and consistent
     (not necessarily correct!)
     """
     BM = BECModel(TESTCONFIG)
@@ -191,12 +191,41 @@ def test_run(tmpdir):
     with fiona.open(os.path.join(tmpdir, "bectest.gpkg")) as output:
         assert list(output.schema["properties"].keys()) == [
             "BGC_LABEL",
-            "AREA_HECTARES",
+            "AREA_HA",
         ]
     # check outputs
     df = gpd.read_file(str(os.path.join(tmpdir, "bectest.gpkg")))
-    areas = df.groupby(["BGC_LABEL"])["AREA_HECTARES"].sum().round()
+    areas = df.groupby(["BGC_LABEL"])["AREA_HA"].sum().round()
     assert list(areas) == [5156.0, 553.0, 3617.0, 7550.0, 1511.0, 5049.0]
+
+
+def test_run_shp(tmpdir):
+    """
+    Check that shapefile outputs are created, properly structured and consistent
+    (not necessarily correct!)
+    """
+    BM = BECModel(TESTCONFIG)
+    BM.update_config({"temp_folder": str(tmpdir)})
+    BM.update_config({"out_file": str(os.path.join(tmpdir, "bectest.shp"))})
+    BM.update_config({"dem": "tests/data/dem_ok.tif"})
+    BM.load()
+    BM.model()
+    BM.postfilter()
+    BM.write()
+    assert os.path.exists(tmpdir.join("00_dem.tif"))
+    assert os.path.exists(tmpdir.join("02_aspect.tif"))
+    assert os.path.exists(tmpdir.join("bectest.shp"))
+    assert fiona.listlayers(os.path.join(tmpdir, "bectest.shp")) == ["bectest"]
+    with fiona.open(os.path.join(tmpdir, "bectest.shp")) as output:
+        assert list(output.schema["properties"].keys()) == [
+            "BGC_LABEL",
+            "AREA_HA",
+        ]
+    # check outputs
+    df = gpd.read_file(str(os.path.join(tmpdir, "bectest.shp")))
+    areas = df.groupby(["BGC_LABEL"])["AREA_HA"].sum().round()
+    # note output areas are not quite the same as when using gpkg above!
+    assert list(areas) == [5156.0, 553.0, 3619.0, 7550.0, 1510.0, 5049.0]
 
 
 def test_nowoodland(tmpdir):
